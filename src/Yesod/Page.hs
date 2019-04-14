@@ -21,9 +21,18 @@ import Data.Bifunctor (bimap)
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as BSL
 import Data.Monoid (Last(Last, getLast), getSum)
+import Data.Text (Text, intercalate)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Database.Persist
-import Yesod.Core (MonadHandler, lookupGetParam)
+import Yesod.Core
+  ( HandlerSite
+  , MonadHandler
+  , RenderRoute
+  , Route
+  , getCurrentRoute
+  , lookupGetParam
+  , renderRoute
+  )
 import Yesod.Page.QueryParam.Internal
 
 withEntityPage
@@ -32,6 +41,7 @@ withEntityPage
      , FromJSON (Key a)
      , ToJSON params
      , FromJSON params
+     , RenderRoute (HandlerSite m)
      )
   => Free ParseParam params
   -> (Cursor params (Key a) -> m [Entity a])
@@ -44,6 +54,7 @@ withPage
      , FromJSON position
      , ToJSON params
      , FromJSON params
+     , RenderRoute (HandlerSite m)
      )
   => Free ParseParam params
   -> (a -> (position, b))
@@ -66,17 +77,21 @@ instance ToJSON a => ToJSON (Page a) where
     ]
 
 data Cursor params position = Cursor
-  { cursorParams :: params
+  { cursorPath :: Text
+  , cursorParams :: params
   , cursorLastPosition :: Maybe position
   , cursorLimit :: Maybe Int
   }
 
 instance ToJSON (Cursor Value Value) where
-  toJSON c = toJSON . decodeUtf8 . Base64.encode . BSL.toStrict . encode $ object
-    [ "params" .= cursorParams c
-    , "lastPosition" .= cursorLastPosition c
-    , "limit" .= cursorLimit c
-    ]
+  toJSON c = do
+    let next = decodeUtf8 . Base64.encode . BSL.toStrict . encode $ object
+          [ "path" .= cursorPath c
+          , "params" .= cursorParams c
+          , "lastPosition" .= cursorLastPosition c
+          , "limit" .= cursorLimit c
+          ]
+    toJSON $ cursorPath c <> "?next=" <> next
 
 instance (FromJSON a, FromJSON b) => FromJSON (Cursor a b) where
   parseJSON = withText "Cursor" $ \t ->
@@ -87,7 +102,8 @@ instance (FromJSON a, FromJSON b) => FromJSON (Cursor a b) where
         Right value -> withObject "Cursor" parseCursor value
    where
     parseCursor o = Cursor
-      <$> o .: "params"
+      <$> o .: "path"
+      <*> o .: "params"
       <*> (Just <$> o .: "lastPosition")
       <*> (o .:? "limit")
 
@@ -97,11 +113,13 @@ getPaginated
      , FromJSON position
      , ToJSON params
      , FromJSON params
+     , RenderRoute (HandlerSite m)
      )
   => Free ParseParam params
   -> m (Cursor params position, (a -> (position, b)) -> [a] -> Page b)
 getPaginated parser = do
-  cursor <- runParseParams parser
+  route <- maybe (error "no route") pure =<< getCurrentRoute
+  cursor <- runParseParams route parser
   pure (cursor, withCursor cursor)
 
 withCursor
@@ -115,7 +133,8 @@ withCursor cursor makePayload items = Page
   , pageCursor = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
     Just $ Cursor
-      { cursorParams = toJSON $ cursorParams cursor
+      { cursorPath = cursorPath cursor
+      , cursorParams = toJSON $ cursorParams cursor
       , cursorLastPosition = Just $ toJSON mLastId
       , cursorLimit = cursorLimit cursor
       }
@@ -126,18 +145,20 @@ withCursor cursor makePayload items = Page
   unwrap = bimap (bimap getLast ($ [])) getSum
 
 runParseParams
-  :: (MonadHandler m, FromJSON b, FromJSON position)
-  => Free ParseParam b
+  :: (MonadHandler m, FromJSON b, FromJSON position, RenderRoute a)
+  => Route a
+  -> Free ParseParam b
   -> m (Cursor b position)
-runParseParams f = lookupGetParam "next" >>= \case
+runParseParams route f = lookupGetParam "next" >>= \case
   Nothing -> do
     params <- interpret f
     limit <- (decodeText =<<) <$> lookupGetParam "limit"
-    pure $ Cursor params Nothing limit
+    pure $ Cursor path params Nothing limit
   Just next -> case eitherDecodeText $ "\"" <> next <> "\"" of
     Left err -> error err
     Right cursor -> pure cursor
  where
+  path = ("/" <>) . intercalate "/" . fst $ renderRoute route
   interpret = \case
     (Free (LookupGetParam param next)) ->
       interpret . next =<< lookupGetParam param

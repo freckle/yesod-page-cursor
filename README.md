@@ -4,12 +4,12 @@ Cursor based pagination for `yesod`.
 
 ## Usage
 
-Paginated requests return a single page and a cursor token to retrieve the next page.
+Paginated requests return a single page and a link with a cursor token to retrieve the next page.
 
 ```sh
 $ curl 'some-rest.com/endpoint?limit=3'
 {
-  "next": "eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [...]
 }
 ```
@@ -19,7 +19,7 @@ The token can then be passed as a query param to retrieve the next page.
 ```sh
 $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "next": "eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [...]
 }
 ```
@@ -37,9 +37,9 @@ $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVs
 ## Example
 
 ```sh
-$ curl 'localhost:3000?teacherId=1&limit=3'
+$ curl 'localhost:3000/?teacherId=1&limit=3'
 {
-  "next": "eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "/?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [
     {
       "value": {
@@ -68,9 +68,9 @@ $ curl 'localhost:3000?teacherId=1&limit=3'
   ]
 }
 
-$ curl 'localhost:3000?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
+$ curl 'localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "next": "eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "/?next=eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [
     {
       "value": {
@@ -99,9 +99,9 @@ $ curl 'localhost:3000?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxp
   ]
 }
 
-$ curl 'localhost:3000?next=eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
+$ curl 'localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "next": "eyJsYXN0UG9zaXRpb24iOjksInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "/?next=eyJsYXN0UG9zaXRpb24iOjksInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [
     {
       "value": {

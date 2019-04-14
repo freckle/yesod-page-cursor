@@ -76,11 +76,11 @@ instance YesodPersist Simple where
   runDB = runDB'
 
 mkYesod "Simple" [parseRoutes|
-/ HomeR GET
+/some-route SomeR GET
 |]
 
-getHomeR :: Handler Value
-getHomeR = do
+getSomeR :: Handler Value
+getSomeR = do
   let
     parseParams =
       (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
@@ -103,7 +103,7 @@ main = do
     yit "returns no cursor when there are no items" $ do
       runNoLoggingT . runDB' $ deleteAssignments
       request $ do
-        setUrl HomeR
+        setUrl SomeR
         addGetParam "teacherId" "1"
       mNext <- mayNext
       liftIO $ mNext `shouldBe` Nothing
@@ -114,21 +114,17 @@ main = do
         deleteAssignments
         replicateM_ 12 . insert $ SomeAssignment 1 2 now
       request $ do
-        setUrl HomeR
+        setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "4"
       statusIs 200
       assertKeys [1, 2, 3, 4]
       next <- getNext
-      request $ do
-        setUrl HomeR
-        addGetParam "next" next
+      get next
       statusIs 200
       assertKeys [5, 6, 7, 8]
       next' <- getNext
-      request $ do
-        setUrl HomeR
-        addGetParam "next" next'
+      get next'
       statusIs 200
       assertKeys [9, 10, 11, 12]
 
@@ -138,7 +134,7 @@ main = do
         deleteAssignments
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
-        setUrl HomeR
+        setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "3"
       statusIs 200
@@ -152,7 +148,7 @@ main = do
         deleteAssignments
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
-        setUrl HomeR
+        setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
       statusIs 200
@@ -160,9 +156,7 @@ main = do
       next <- getNext
       let
         go = do
-          request $ do
-            setUrl HomeR
-            addGetParam "next" next
+          get next
           statusIs 200
           assertKeys [3, 4]
           getBody
@@ -176,7 +170,7 @@ main = do
         deleteAssignments
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
-        setUrl HomeR
+        setUrl SomeR
         addGetParam "teacherId" "1"
       statusIs 200
       _next <- getNext
