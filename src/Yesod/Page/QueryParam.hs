@@ -2,6 +2,7 @@ module Yesod.Page.QueryParam
   ( optional
   , required
   , ParseParamM
+  , parseParams
   )
 where
 

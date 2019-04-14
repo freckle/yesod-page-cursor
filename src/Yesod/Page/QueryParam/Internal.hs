@@ -1,24 +1,18 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Yesod.Page.QueryParam.Internal
   ( optional
   , required
   , ParseParamM
   , ParseParam(LookupGetParam, ParseParamError)
-  , eitherDecodeText
-  , decodeText
+  , parseParams
   )
 where
 
-import Control.Monad.Free (Free, liftF)
-import Data.Aeson
-import qualified Data.ByteString.Lazy as BSL
+import Control.Monad.Free (Free(Free, Pure), liftF)
 import Data.Text (Text)
-import Data.Text.Encoding (encodeUtf8)
 import Yesod.Core
 
 data ParseParam next
@@ -27,12 +21,6 @@ data ParseParam next
   deriving (Functor)
 
 type ParseParamM = Free ParseParam
-
-eitherDecodeText :: FromJSON a => Text -> Either String a
-eitherDecodeText = eitherDecode . BSL.fromStrict . encodeUtf8
-
-decodeText :: FromJSON a => Text -> Maybe a
-decodeText = decode . BSL.fromStrict . encodeUtf8
 
 -- | Parse an option a query param
 optional :: PathPiece a => Text -> Free ParseParam (Maybe a)
@@ -46,3 +34,10 @@ required param = do
 
 failedParse :: Text -> Free ParseParam a
 failedParse txt = liftF $ ParseParamError txt (error "impossible")
+
+parseParams :: MonadHandler m => ParseParamM a -> m a
+parseParams = \case
+  (Free (LookupGetParam param next)) ->
+    parseParams . next =<< lookupGetParam param
+  (Free (ParseParamError err _)) -> invalidArgs [err]
+  (Pure x) -> pure x

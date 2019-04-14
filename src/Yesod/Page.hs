@@ -17,7 +17,6 @@ module Yesod.Page
 where
 
 import Control.Monad (guard)
-import Control.Monad.Free (Free(Free, Pure))
 import Data.Aeson
 import Data.Bifunctor (bimap)
 import qualified Data.ByteString.Base64 as Base64
@@ -164,7 +163,7 @@ runParseParams
   -> m (Cursor params position)
 runParseParams pageConfig route f = lookupGetParam "next" >>= \case
   Nothing -> do
-    params <- interpret f
+    params <- parseParams f
     limit <- (decodeText =<<) <$> lookupGetParam "limit"
     pure $ Cursor path params Nothing limit
   Just next -> case eitherDecodeText $ "\"" <> next <> "\"" of
@@ -175,8 +174,9 @@ runParseParams pageConfig route f = lookupGetParam "next" >>= \case
     fromMaybe "" (baseDomain pageConfig)
       <> "/"
       <> (intercalate "/" . fst $ renderRoute route)
-  interpret = \case
-    (Free (LookupGetParam param next)) ->
-      interpret . next =<< lookupGetParam param
-    (Free (ParseParamError err _)) -> invalidArgs [err]
-    (Pure x) -> pure x
+
+eitherDecodeText :: FromJSON a => Text -> Either String a
+eitherDecodeText = eitherDecode . BSL.fromStrict . encodeUtf8
+
+decodeText :: FromJSON a => Text -> Maybe a
+decodeText = decode . BSL.fromStrict . encodeUtf8
