@@ -1,6 +1,41 @@
 # yesod-page-cursor
 
-Cursor based pagination for `yesod`
+Cursor based pagination for `yesod`.
+
+## Usage
+
+Paginated requests return a single page and a cursor token to retireve the next page.
+
+```sh
+$ curl 'some-rest.com/endpoint?limit=3'
+{
+  "next": "eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "data": [...]
+}
+```
+
+The token can then be passed as a query param to retrieve the next page.
+
+```sh
+$ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
+{
+  "next": "eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "data": [...]
+}
+```
+
+If no pages remain then no token is returned
+
+```
+```sh
+$ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
+{
+  "next": null,
+  "data": [...]
+}
+```
+
+## Example
 
 ```sh
 $ curl 'localhost:3000?teacherId=1&limit=3'
