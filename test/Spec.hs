@@ -176,6 +176,20 @@ main = do
       _next <- getNext
       assertKeys [1, 2, 3, 4, 5]
 
+    yit "parses optional params" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        _ <- insert $ SomeAssignment 1 3 now
+        replicateM_ 5 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "courseId" "3"
+      statusIs 200
+      _next <- getNext
+      assertKeys [1]
+
 deleteAssignments
   :: ReaderT SqlBackend (NoLoggingT (SIO (YesodExampleData Simple))) ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
