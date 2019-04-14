@@ -24,9 +24,10 @@ getSomeR = do
 `cursorLastPosition` is configurable. A page sorted by `created_at` may look like:
 
 ```hs
-createdAtPage = entityPage
+createdAtPage = PageConfig
   { makePosition = \x ->
       (entityKey x, someAsssignmentCreatedAt $ entityVal x)
+  , baseDomain = Nothing
   }
 
 getSortedSomeR :: Handler Value
