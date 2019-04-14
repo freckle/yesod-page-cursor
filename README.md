@@ -14,7 +14,7 @@ $ curl 'some-rest.com/endpoint?limit=3'
 }
 ```
 
-The token can then be passed as a query param to retrieve the next page.
+The link can be used to retrieve the next page.
 
 ```sh
 $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
@@ -24,7 +24,7 @@ $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVs
 }
 ```
 
-If no pages remain then no token is returned
+If no pages remain then no link is returned
 
 ```sh
 $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
