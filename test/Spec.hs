@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -84,7 +85,7 @@ getSomeR = do
   let
     parseParams =
       (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
-  page <- withEntityPage parseParams $ \Cursor {..} -> do
+  page <- withPage entityPage parseParams $ \Cursor {..} -> do
     let (teacherId, mCourseId) = cursorParams
     runDB $ selectList
       (catMaybes

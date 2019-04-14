@@ -8,9 +8,10 @@
 
 module Yesod.Page
   ( withPage
-  , withEntityPage
+  , entityPage
   , Page(..)
   , Cursor(..)
+  , PageConfig(..)
   )
 where
 
@@ -20,6 +21,7 @@ import Data.Aeson
 import Data.Bifunctor (bimap)
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as BSL
+import Data.Maybe (fromMaybe)
 import Data.Monoid (Last(Last, getLast), getSum)
 import Data.Text (Text, intercalate)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -35,18 +37,8 @@ import Yesod.Core
   )
 import Yesod.Page.QueryParam.Internal
 
-withEntityPage
-  :: ( MonadHandler m
-     , ToJSON (Key a)
-     , FromJSON (Key a)
-     , ToJSON params
-     , FromJSON params
-     , RenderRoute (HandlerSite m)
-     )
-  => Free ParseParam params
-  -> (Cursor params (Key a) -> m [Entity a])
-  -> m (Page (Entity a))
-withEntityPage parse = withPage parse (\x -> (entityKey x, x))
+entityPage :: PageConfig (Entity a) (Key a)
+entityPage = PageConfig Nothing entityKey
 
 withPage
   :: ( MonadHandler m
@@ -56,13 +48,18 @@ withPage
      , FromJSON params
      , RenderRoute (HandlerSite m)
      )
-  => Free ParseParam params
-  -> (a -> (position, b))
+  => PageConfig a position
+  -> Free ParseParam params
   -> (Cursor params position -> m [a])
-  -> m (Page b)
-withPage parse makePayload go = do
-  (cursor, with) <- getPaginated parse
-  with makePayload <$> go cursor
+  -> m (Page a)
+withPage pageConfig parse go = do
+  (cursor, with) <- getPaginated pageConfig parse
+  with <$> go cursor
+
+data PageConfig a position = PageConfig
+  { baseDomain :: Maybe Text
+  , makePosition :: a -> position
+  }
 
 data Page a = Page
   { pageData :: [a]
@@ -115,21 +112,22 @@ getPaginated
      , FromJSON params
      , RenderRoute (HandlerSite m)
      )
-  => Free ParseParam params
-  -> m (Cursor params position, (a -> (position, b)) -> [a] -> Page b)
-getPaginated parser = do
+  => PageConfig a position
+  -> Free ParseParam params
+  -> m (Cursor params position, [a] -> Page a)
+getPaginated pageConfig parser = do
   route <- maybe (error "no route") pure =<< getCurrentRoute
-  cursor <- runParseParams route parser
-  pure (cursor, withCursor cursor)
+  cursor <- runParseParams pageConfig route parser
+  pure (cursor, withCursor pageConfig cursor)
 
 withCursor
   :: (ToJSON params, ToJSON position)
-  => Cursor params position
-  -> (a -> (position, b))
+  => PageConfig a position
+  -> Cursor params position
   -> [a]
-  -> Page b
-withCursor cursor makePayload items = Page
-  { pageData = payload
+  -> Page a
+withCursor pageConfig cursor items = Page
+  { pageData = items
   , pageCursor = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
     Just $ Cursor
@@ -140,16 +138,17 @@ withCursor cursor makePayload items = Page
       }
   }
  where
-  ((mLastId, payload), len) = unwrap $ foldMap ((, 1) . wrap) items
-  wrap = bimap (Last . Just) (:) . makePayload
-  unwrap = bimap (bimap getLast ($ [])) getSum
+  (mLastId, len) = unwrap $ foldMap wrap items
+  wrap = (, 1) . Last . Just . makePosition pageConfig
+  unwrap = bimap getLast getSum
 
 runParseParams
-  :: (MonadHandler m, FromJSON b, FromJSON position, RenderRoute a)
-  => Route a
-  -> Free ParseParam b
-  -> m (Cursor b position)
-runParseParams route f = lookupGetParam "next" >>= \case
+  :: (MonadHandler m, FromJSON params, FromJSON position, RenderRoute r)
+  => PageConfig a position
+  -> Route r
+  -> Free ParseParam params
+  -> m (Cursor params position)
+runParseParams pageConfig route f = lookupGetParam "next" >>= \case
   Nothing -> do
     params <- interpret f
     limit <- (decodeText =<<) <$> lookupGetParam "limit"
@@ -158,7 +157,10 @@ runParseParams route f = lookupGetParam "next" >>= \case
     Left err -> error err
     Right cursor -> pure cursor
  where
-  path = ("/" <>) . intercalate "/" . fst $ renderRoute route
+  path =
+    fromMaybe "" (baseDomain pageConfig)
+      <> "/"
+      <> (intercalate "/" . fst $ renderRoute route)
   interpret = \case
     (Free (LookupGetParam param next)) ->
       interpret . next =<< lookupGetParam param

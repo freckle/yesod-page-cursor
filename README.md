@@ -9,7 +9,7 @@ Paginated requests return a single page and a link with a cursor token to retrie
 ```sh
 $ curl 'some-rest.com/endpoint?limit=3'
 {
-  "next": "/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [...]
 }
 ```
@@ -19,7 +19,7 @@ The link can be used to retrieve the next page.
 ```sh
 $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "next": "/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [...]
 }
 ```
@@ -39,7 +39,7 @@ $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVs
 ```sh
 $ curl 'localhost:3000/?teacherId=1&limit=3'
 {
-  "next": "/?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [
     {
       "value": {
@@ -70,7 +70,7 @@ $ curl 'localhost:3000/?teacherId=1&limit=3'
 
 $ curl 'localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "next": "/?next=eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [
     {
       "value": {
@@ -101,7 +101,7 @@ $ curl 'localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImx
 
 $ curl 'localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjYsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "next": "/?next=eyJsYXN0UG9zaXRpb24iOjksInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "localhost:3000/?next=eyJsYXN0UG9zaXRpb24iOjksInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [
     {
       "value": {
