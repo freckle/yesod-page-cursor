@@ -2,6 +2,25 @@
 
 Cursor based pagination for `yesod`.
 
+```hs
+getSomeR :: Handler Value
+getSomeR = do
+  let
+    parseParams =
+      (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
+  page <- withPage entityPage parseParams $ \Cursor {..} -> do
+    let (teacherId, mCourseId) = cursorParams
+    runDB $ selectList
+      (catMaybes
+        [ Just $ SomeAssignmentTeacherId ==. teacherId
+        , (SomeAssignmentCourseId ==.) <$> mCourseId
+        , (persistIdField >.) <$> cursorLastPosition
+        ]
+      )
+      [LimitTo $ fromMaybe 100 cursorLimit]
+  returnJson $ keyValueEntityToJSON <$> page
+```
+
 ## Usage
 
 Paginated requests return a single page and a link with a cursor token to retrieve the next page.
