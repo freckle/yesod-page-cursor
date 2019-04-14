@@ -43,4 +43,4 @@ required param = do
   maybe (failedParse $ "Could not parse query param " <> param) pure mTxt
 
 failedParse :: Text -> Free ParseParam a
-failedParse txt = liftF $ ParseParamError txt (error "asdf")
+failedParse txt = liftF $ ParseParamError txt (error "impossible")

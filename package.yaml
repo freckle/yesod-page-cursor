@@ -20,6 +20,7 @@ dependencies:
 - free
 - persistent
 - text
+- unliftio
 - yesod-core
 
 library:

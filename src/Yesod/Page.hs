@@ -24,15 +24,17 @@ import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Last(Last, getLast), getSum)
-import Data.Text (Text, intercalate)
+import Data.Text (Text, intercalate, pack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Database.Persist
+import UnliftIO (throwString)
 import Yesod.Core
   ( HandlerSite
   , MonadHandler
   , RenderRoute
   , Route
   , getCurrentRoute
+  , invalidArgs
   , lookupGetParam
   , renderRoute
   )
@@ -46,6 +48,7 @@ entityPage = PageConfig Nothing entityKey
 --
 -- `withPage` wraps a parser and handlers query param parsing and encoding of
 -- paginated requests/responses.
+--
 withPage
   :: ( MonadHandler m
      , ToJSON position
@@ -83,6 +86,7 @@ instance ToJSON a => ToJSON (Page a) where
 --
 -- A Cursor encodes all necessary information to determine the position in a
 -- specific page.
+--
 data Cursor params position = Cursor
   { cursorPath :: Text -- ^ The path of the parsed request
   , cursorParams :: params -- ^ Query parameters passed from the request
@@ -126,7 +130,7 @@ getPaginated
   -> ParseParamM params
   -> m (Cursor params position, [a] -> Page a)
 getPaginated pageConfig parser = do
-  route <- maybe (error "no route") pure =<< getCurrentRoute
+  route <- maybe (throwString "no route") pure =<< getCurrentRoute
   cursor <- runParseParams pageConfig route parser
   pure (cursor, withCursor pageConfig cursor)
 
@@ -164,7 +168,7 @@ runParseParams pageConfig route f = lookupGetParam "next" >>= \case
     limit <- (decodeText =<<) <$> lookupGetParam "limit"
     pure $ Cursor path params Nothing limit
   Just next -> case eitherDecodeText $ "\"" <> next <> "\"" of
-    Left err -> error err
+    Left err -> invalidArgs [pack err]
     Right cursor -> pure cursor
  where
   path =
@@ -174,5 +178,5 @@ runParseParams pageConfig route f = lookupGetParam "next" >>= \case
   interpret = \case
     (Free (LookupGetParam param next)) ->
       interpret . next =<< lookupGetParam param
-    (Free (ParseParamError err _)) -> error $ show err
+    (Free (ParseParamError err _)) -> invalidArgs [err]
     (Pure x) -> pure x
