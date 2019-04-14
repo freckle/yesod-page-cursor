@@ -4,7 +4,7 @@ Cursor based pagination for `yesod`.
 
 ## Usage
 
-Paginated requests return a single page and a cursor token to retireve the next page.
+Paginated requests return a single page and a cursor token to retrieve the next page.
 
 ```sh
 $ curl 'some-rest.com/endpoint?limit=3'
