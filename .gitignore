@@ -1,0 +1,4 @@
+.stack-work/
+yesod-page-cursor.cabal
+*~
+:test:
