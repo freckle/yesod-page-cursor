@@ -21,6 +21,30 @@ getSomeR = do
   returnJson $ keyValueEntityToJSON <$> page
 ```
 
+`cursorLastPosition` is configurable. A page sorted by `created_at` may look like:
+
+```hs
+createdAtPage = entityPage
+  { makePosition = \x ->
+      (entityKey x, someAsssignmentCreatedAt $ entityVal x)
+  }
+
+getSortedSomeR :: Handler Value
+getSortedSomeR = do
+  let parseParams = pure ()
+  page <- withPage createdAtPage parseParams $ \Cursor {..} -> do
+    runDB $ selectList
+      (catMaybes
+        [ (persistIdField >.) . fst <$> cursorLastPosition
+        , (SomeAssingmentCreatedAt >=.) . snd <$> cursorLastPosition
+        ]
+      )
+      [ LimitTo $ fromMaybe 100 cursorLimit
+      , Asc SomeAssignmentCreatedAt
+      ]
+  returnJson $ keyValueEntityToJSON <$> page
+```
+
 ## Usage
 
 Paginated requests return a single page and a link with a cursor token to retrieve the next page.
