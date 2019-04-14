@@ -7,6 +7,7 @@
 module Yesod.Page.QueryParam.Internal
   ( optional
   , required
+  , ParseParamM
   , ParseParam(LookupGetParam, ParseParamError)
   , eitherDecodeText
   , decodeText
@@ -24,6 +25,8 @@ data ParseParam next
   = LookupGetParam Text (Maybe Text -> next)
   | ParseParamError Text next
   deriving (Functor)
+
+type ParseParamM = Free ParseParam
 
 eitherDecodeText :: FromJSON a => Text -> Either String a
 eitherDecodeText = eitherDecode . BSL.fromStrict . encodeUtf8

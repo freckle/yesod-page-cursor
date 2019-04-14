@@ -8,10 +8,11 @@
 
 module Yesod.Page
   ( withPage
-  , entityPage
   , Page(..)
   , Cursor(..)
+  -- * Configuration
   , PageConfig(..)
+  , entityPage
   )
 where
 
@@ -37,9 +38,14 @@ import Yesod.Core
   )
 import Yesod.Page.QueryParam.Internal
 
+-- | Configuration for an unsorted persistent Entity page
 entityPage :: PageConfig (Entity a) (Key a)
 entityPage = PageConfig Nothing entityKey
 
+-- | Page parsing and encoding
+--
+-- `withPage` wraps a parser and handlers query param parsing and encoding of
+-- paginated requests/responses.
 withPage
   :: ( MonadHandler m
      , ToJSON position
@@ -49,8 +55,8 @@ withPage
      , RenderRoute (HandlerSite m)
      )
   => PageConfig a position
-  -> Free ParseParam params
-  -> (Cursor params position -> m [a])
+  -> ParseParamM params -- ^ Query param parser
+  -> (Cursor params position -> m [a]) -- ^ Handler
   -> m (Page a)
 withPage pageConfig parse go = do
   (cursor, with) <- getPaginated pageConfig parse
@@ -63,21 +69,25 @@ data PageConfig a position = PageConfig
 
 data Page a = Page
   { pageData :: [a]
-  , pageCursor :: Maybe (Cursor Value Value)
+  , pageNext :: Maybe (Cursor Value Value)
   }
   deriving (Functor)
 
 instance ToJSON a => ToJSON (Page a) where
   toJSON p = object
     [ "data" .= pageData p
-    , "next" .= pageCursor p
+    , "next" .= pageNext p
     ]
 
+-- | An encoding of the position in a page
+--
+-- A Cursor encodes all necessary information to determine the position in a
+-- specific page.
 data Cursor params position = Cursor
-  { cursorPath :: Text
-  , cursorParams :: params
-  , cursorLastPosition :: Maybe position
-  , cursorLimit :: Maybe Int
+  { cursorPath :: Text -- ^ The path of the parsed request
+  , cursorParams :: params -- ^ Query parameters passed from the request
+  , cursorLastPosition :: Maybe position -- ^ The last position seen by the endpoint consumer
+  , cursorLimit :: Maybe Int -- ^ The page size requested by the endpoint consumer
   }
 
 instance ToJSON (Cursor Value Value) where
@@ -113,7 +123,7 @@ getPaginated
      , RenderRoute (HandlerSite m)
      )
   => PageConfig a position
-  -> Free ParseParam params
+  -> ParseParamM params
   -> m (Cursor params position, [a] -> Page a)
 getPaginated pageConfig parser = do
   route <- maybe (error "no route") pure =<< getCurrentRoute
@@ -128,7 +138,7 @@ withCursor
   -> Page a
 withCursor pageConfig cursor items = Page
   { pageData = items
-  , pageCursor = do
+  , pageNext = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
     Just $ Cursor
       { cursorPath = cursorPath cursor
@@ -146,7 +156,7 @@ runParseParams
   :: (MonadHandler m, FromJSON params, FromJSON position, RenderRoute r)
   => PageConfig a position
   -> Route r
-  -> Free ParseParam params
+  -> ParseParamM params
   -> m (Cursor params position)
 runParseParams pageConfig route f = lookupGetParam "next" >>= \case
   Nothing -> do
