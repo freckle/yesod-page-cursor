@@ -34,9 +34,11 @@ eitherDecodeText = eitherDecode . BSL.fromStrict . encodeUtf8
 decodeText :: FromJSON a => Text -> Maybe a
 decodeText = decode . BSL.fromStrict . encodeUtf8
 
+-- | Parse an option a query param
 optional :: PathPiece a => Text -> Free ParseParam (Maybe a)
 optional param = liftF $ LookupGetParam param (fromPathPiece =<<)
 
+-- | Parse a query param and fails when it is not found
 required :: PathPiece a => Text -> Free ParseParam a
 required param = do
   mTxt <- optional param
