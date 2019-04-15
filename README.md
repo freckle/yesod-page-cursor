@@ -10,18 +10,31 @@ getSomeR = do
       (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
   page <- withPage entityPage parseParams $ \Cursor {..} -> do
     let (teacherId, mCourseId) = cursorParams
-    runDB $ selectList
+    fmap (sort cursorPosition) . runDB $ selectList
       (catMaybes
         [ Just $ SomeAssignmentTeacherId ==. teacherId
         , (SomeAssignmentCourseId ==.) <$> mCourseId
-        , case cursorPosition of
-          First -> Nothing
-          Previous p -> Just $ persistIdField <. p
-          Next p -> Just $ persistIdField >. p
+        , whereClause cursorPosition
         ]
       )
-      [LimitTo $ fromMaybe 100 cursorLimit]
+      [LimitTo $ fromMaybe 100 cursorLimit, orderBy cursorPosition]
   returnJson $ keyValueEntityToJSON <$> page
+ where
+  whereClause = \case
+    First -> Nothing
+    Previous p -> Just $ persistIdField <. p
+    Next p -> Just $ persistIdField >. p
+    Last -> Nothing
+  orderBy = \case
+    First -> Asc persistIdField
+    Previous _ -> Desc persistIdField
+    Next _ -> Asc persistIdField
+    Last -> Desc persistIdField
+  sort = \case
+    First -> id
+    Previous _ -> reverse
+    Next _ -> id
+    Last -> reverse
 ```
 
 `cursorLastPosition` is configurable. A page sorted by `created_at` may look like:
@@ -37,22 +50,34 @@ getSortedSomeR :: Handler Value
 getSortedSomeR = do
   let parseParams = pure ()
   page <- withPage createdAtPage parseParams $ \Cursor {..} -> do
-    runDB $ selectList
-      (case cursorPosition of
-        First -> []
-        Previous (pId, createdAt) ->
-          [ SomeAssingmentCreatedAt <=. createdAt
-          , persistIdField <. pId
-          ]
-        Next (pId, createdAt) ->
-          [ SomeAssingmentCreatedAt >=. createdAt
-          , persistIdField >. pId
-          ]
-      )
+    fmap (sort cursorPosition) . runDB $ selectList
+      (whereClause cursorPosition)
       [ LimitTo $ fromMaybe 100 cursorLimit
-      , Asc SomeAssignmentCreatedAt
+      , orderBy cursorPosition
       ]
   returnJson $ keyValueEntityToJSON <$> page
+ where
+  whereClause = \case
+    First -> []
+    Previous (pId, createdAt) ->
+      [ SomeAssingmentCreatedAt <=. createdAt
+      , persistIdField <. pId
+      ]
+    Next (pId, createdAt) ->
+      [ SomeAssingmentCreatedAt >=. createdAt
+      , persistIdField >. pId
+      ]
+    Last -> []
+  orderBy = \case
+    First -> Asc SomeAssignmentCreatedAt
+    Previous _ -> Desc SomeAssignmentCreatedAt
+    Next _ -> Asc SomeAssignmentCreatedAt
+    Last -> Desc SomeAssignmentCreatedAt
+  sort = \case
+    First -> id
+    Previous _ -> reverse
+    Next _ -> id
+    Last -> reverse
 ```
 
 ## Usage
