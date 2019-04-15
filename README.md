@@ -1,6 +1,8 @@
 # yesod-page-cursor
 
-Cursor based pagination for `yesod`.
+Cursor based pagination for `yesod` using index friendly keyset cursors.
+
+Primer: [No Offset](https://use-the-index-luke.com/no-offset)
 
 ```hs
 getSomeR :: Handler Value
