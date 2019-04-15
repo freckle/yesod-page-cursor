@@ -75,6 +75,7 @@ data Page a = Page
   , pageFirst :: Cursor Value Value
   , pagePrevious :: Maybe (Cursor Value Value)
   , pageNext :: Maybe (Cursor Value Value)
+  , pageLast :: Cursor Value Value
   }
   deriving (Functor)
 
@@ -84,6 +85,7 @@ instance ToJSON a => ToJSON (Page a) where
     , "first" .= pageFirst p
     , "previous" .= pagePrevious p
     , "next" .= pageNext p
+    , "last" .= pageLast p
     ]
 
 -- | An encoding of the position in a page
@@ -122,7 +124,7 @@ instance (FromJSON a, FromJSON b) => FromJSON (Cursor a b) where
       <*> o .: "position"
       <*> (o .:? "limit")
 
-data Position position = First | Previous position | Next position
+data Position position = First | Previous position | Next position | Last
 
 instance FromJSON p => FromJSON (Position p) where
   parseJSON = withObject "Position" $ \o -> do
@@ -131,6 +133,7 @@ instance FromJSON p => FromJSON (Position p) where
       "first" -> pure First
       "previous" -> Previous <$> o .: "keySet"
       "next" -> Next <$> o .: "keySet"
+      "last" -> pure Last
       unexpected -> fail $ show unexpected
 
 instance ToJSON p => ToJSON (Position p) where
@@ -138,6 +141,7 @@ instance ToJSON p => ToJSON (Position p) where
     First -> object ["position" .= ("first" :: Text)]
     Previous p -> object ["position" .= ("previous" :: Text), "keySet" .= p]
     Next p -> object ["position" .= ("next" :: Text), "keySet" .= p]
+    Last -> object ["position" .= ("last" :: Text)]
 
 getPaginated
   :: ( MonadHandler m
@@ -164,12 +168,11 @@ withCursor
 withCursor pageConfig cursor items = Page
   { pageData = items
   , pageFirst = makeCursor First
-  , pagePrevious = do
-    guard . not $ null items || maybe False (len <) (cursorLimit cursor)
-    Just $ makeCursor . Previous $ toJSON mFirstId
+  , pagePrevious = Just $ makeCursor . Previous $ toJSON mFirstId
   , pageNext = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
     Just $ makeCursor . Next $ toJSON mLastId
+  , pageLast = makeCursor Last
   }
  where
   (len, mFirstId, mLastId) = unwrap $ foldMap wrap items

@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -22,7 +23,7 @@ import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
 import Database.Persist
   ( Filter
-  , SelectOpt(LimitTo)
+  , SelectOpt(Asc, Desc, LimitTo)
   , deleteWhere
   , insert
   , keyValueEntityToJSON
@@ -37,6 +38,7 @@ import Database.Persist.Sqlite (withSqliteConn)
 import Database.Persist.TH
   (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import GHC.Generics (Generic)
+import GHC.Stack (HasCallStack)
 import Network.Wai.Test (simpleBody)
 import Test.Hspec (hspec, shouldBe)
 import Yesod
@@ -87,18 +89,31 @@ getSomeR = do
       (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
   page <- withPage entityPage parseParams $ \Cursor {..} -> do
     let (teacherId, mCourseId) = cursorParams
-    runDB $ selectList
+    fmap (sort cursorPosition) . runDB $ selectList
       (catMaybes
         [ Just $ SomeAssignmentTeacherId ==. teacherId
         , (SomeAssignmentCourseId ==.) <$> mCourseId
-        , case cursorPosition of
-          First -> Nothing
-          Previous p -> Just $ persistIdField <. p
-          Next p -> Just $ persistIdField >. p
+        , whereClause cursorPosition
         ]
       )
-      [LimitTo $ fromMaybe 100 cursorLimit]
+      [LimitTo $ fromMaybe 100 cursorLimit, orderBy cursorPosition]
   returnJson $ keyValueEntityToJSON <$> page
+ where
+  whereClause = \case
+    First -> Nothing
+    Previous p -> Just $ persistIdField <. p
+    Next p -> Just $ persistIdField >. p
+    Last -> Nothing
+  orderBy = \case
+    First -> Asc persistIdField
+    Previous _ -> Desc persistIdField
+    Next _ -> Asc persistIdField
+    Last -> Desc persistIdField
+  sort = \case
+    First -> id
+    Previous _ -> reverse
+    Next _ -> id
+    Last -> reverse
 
 main :: IO ()
 main = do
@@ -121,13 +136,10 @@ main = do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "4"
-      statusIs 200
       assertKeys [1, 2, 3, 4]
       get =<< getLink "next"
-      statusIs 200
       assertKeys [5, 6, 7, 8]
       get =<< getLink "next"
-      statusIs 200
       assertKeys [9, 10, 11, 12]
 
     yit "finds a null next when no items are left" $ do
@@ -139,7 +151,6 @@ main = do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "3"
-      statusIs 200
       assertKeys [1, 2]
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
@@ -153,13 +164,11 @@ main = do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
-      statusIs 200
       assertKeys [1, 2]
       next <- getLink "next"
       let
         go = do
           get next
-          statusIs 200
           assertKeys [3, 4]
           getBody
       response1 <- go
@@ -174,7 +183,6 @@ main = do
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
-      statusIs 200
       _next <- getLink "next"
       assertKeys [1, 2, 3, 4, 5]
 
@@ -188,7 +196,6 @@ main = do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "courseId" "3"
-      statusIs 200
       _next <- getLink "next"
       assertKeys [1]
 
@@ -196,44 +203,58 @@ main = do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
         deleteAssignments
-        replicateM_ 4 . insert $ SomeAssignment 1 2 now
+        replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
-      statusIs 200
       assertKeys [1, 2]
       get =<< getLink "next"
-      statusIs 200
+      assertKeys [3, 4]
+      get =<< getLink "next"
+      assertKeys [5, 6]
+      get =<< getLink "previous"
       assertKeys [3, 4]
       get =<< getLink "previous"
-      statusIs 200
       assertKeys [1, 2]
 
     yit "can link to first" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
         deleteAssignments
-        replicateM_ 4 . insert $ SomeAssignment 1 2 now
+        replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
-      statusIs 200
       assertKeys [1, 2]
       get =<< getLink "next"
-      statusIs 200
       assertKeys [3, 4]
+      get =<< getLink "next"
+      assertKeys [5, 6]
       get =<< getLink "first"
-      statusIs 200
       assertKeys [1, 2]
+
+    yit "can link to last" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 6 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      assertKeys [1, 2]
+      get =<< getLink "last"
+      assertKeys [5, 6]
 
 deleteAssignments
   :: ReaderT SqlBackend (NoLoggingT (SIO (YesodExampleData Simple))) ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
 
-assertKeys :: [Scientific] -> SIO (YesodExampleData site) ()
+assertKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
 assertKeys expectedKeys = do
+  statusIs 200
   keys <- getDataKeys
   liftIO $ keys `shouldBe` expectedKeys
 
