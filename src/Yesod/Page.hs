@@ -168,7 +168,13 @@ withCursor
 withCursor pageConfig cursor items = Page
   { pageData = items
   , pageFirst = makeCursor First
-  , pagePrevious = Just $ makeCursor . Previous $ toJSON mFirstId
+  , pagePrevious = do
+    guard $ case cursorPosition cursor of
+      First -> False
+      Previous _ -> True
+      Next _ -> True
+      Last -> True
+    Just $ makeCursor . Previous $ toJSON mFirstId
   , pageNext = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
     Just $ makeCursor . Next $ toJSON mLastId

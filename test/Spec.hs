@@ -248,6 +248,19 @@ main = do
       get =<< getLink "last"
       assertKeys [5, 6]
 
+    yit "has no previous on first page" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 6 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      assertKeys [1, 2]
+      mPrevious <- mayLink "previous"
+      liftIO $ mPrevious `shouldBe` Nothing
+
 deleteAssignments
   :: ReaderT SqlBackend (NoLoggingT (SIO (YesodExampleData Simple))) ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
