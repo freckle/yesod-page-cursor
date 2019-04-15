@@ -28,6 +28,7 @@ import Database.Persist
   , keyValueEntityToJSON
   , persistIdField
   , selectList
+  , (<.)
   , (==.)
   , (>.)
   )
@@ -90,7 +91,10 @@ getSomeR = do
       (catMaybes
         [ Just $ SomeAssignmentTeacherId ==. teacherId
         , (SomeAssignmentCourseId ==.) <$> mCourseId
-        , (persistIdField >.) <$> cursorLastPosition
+        , case cursorPosition of
+          First -> Nothing
+          Previous p -> Just $ persistIdField <. p
+          Next p -> Just $ persistIdField >. p
         ]
       )
       [LimitTo $ fromMaybe 100 cursorLimit]
@@ -105,7 +109,7 @@ main = do
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
-      mNext <- mayNext
+      mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
     yit "traverses a list with a next Cursor" $ do
@@ -119,12 +123,10 @@ main = do
         addGetParam "limit" "4"
       statusIs 200
       assertKeys [1, 2, 3, 4]
-      next <- getNext
-      get next
+      get =<< getLink "next"
       statusIs 200
       assertKeys [5, 6, 7, 8]
-      next' <- getNext
-      get next'
+      get =<< getLink "next"
       statusIs 200
       assertKeys [9, 10, 11, 12]
 
@@ -139,7 +141,7 @@ main = do
         addGetParam "limit" "3"
       statusIs 200
       assertKeys [1, 2]
-      mNext <- mayNext
+      mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
     yit "returns the same response for the same cursor" $ do
@@ -153,7 +155,7 @@ main = do
         addGetParam "limit" "2"
       statusIs 200
       assertKeys [1, 2]
-      next <- getNext
+      next <- getLink "next"
       let
         go = do
           get next
@@ -173,7 +175,7 @@ main = do
         setUrl SomeR
         addGetParam "teacherId" "1"
       statusIs 200
-      _next <- getNext
+      _next <- getLink "next"
       assertKeys [1, 2, 3, 4, 5]
 
     yit "parses optional params" $ do
@@ -187,8 +189,44 @@ main = do
         addGetParam "teacherId" "1"
         addGetParam "courseId" "3"
       statusIs 200
-      _next <- getNext
+      _next <- getLink "next"
       assertKeys [1]
+
+    yit "can traverse previous" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 4 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      statusIs 200
+      assertKeys [1, 2]
+      get =<< getLink "next"
+      statusIs 200
+      assertKeys [3, 4]
+      get =<< getLink "previous"
+      statusIs 200
+      assertKeys [1, 2]
+
+    yit "can link to first" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 4 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      statusIs 200
+      assertKeys [1, 2]
+      get =<< getLink "next"
+      statusIs 200
+      assertKeys [3, 4]
+      get =<< getLink "first"
+      statusIs 200
+      assertKeys [1, 2]
 
 deleteAssignments
   :: ReaderT SqlBackend (NoLoggingT (SIO (YesodExampleData Simple))) ()
@@ -199,11 +237,11 @@ assertKeys expectedKeys = do
   keys <- getDataKeys
   liftIO $ keys `shouldBe` expectedKeys
 
-getNext :: SIO (YesodExampleData site) Text
-getNext = fromMaybe (error "no next") <$> mayNext
+getLink :: Text -> SIO (YesodExampleData site) Text
+getLink rel = fromMaybe (error "no previous") <$> mayLink rel
 
-mayNext :: YesodExample site (Maybe Text)
-mayNext = withResponse $ pure . preview (key "next" . _String) . simpleBody
+mayLink :: Text -> YesodExample site (Maybe Text)
+mayLink rel = withResponse $ pure . preview (key rel . _String) . simpleBody
 
 getBody :: YesodExample site ByteString
 getBody = withResponse $ pure . simpleBody

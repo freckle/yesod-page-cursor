@@ -4,12 +4,13 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
+
 
 module Yesod.Page
   ( withPage
   , Page(..)
   , Cursor(..)
+  , Position(..)
   -- * Configuration
   , PageConfig(..)
   , entityPage
@@ -18,11 +19,11 @@ where
 
 import Control.Monad (guard)
 import Data.Aeson
-import Data.Bifunctor (bimap)
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (fromMaybe)
-import Data.Monoid (Last(Last, getLast), getSum)
+import Data.Monoid (getFirst, getLast, getSum)
+import qualified Data.Monoid as Monoid
 import Data.Text (Text, intercalate, pack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Database.Persist
@@ -71,6 +72,8 @@ data PageConfig a position = PageConfig
 
 data Page a = Page
   { pageData :: [a]
+  , pageFirst :: Cursor Value Value
+  , pagePrevious :: Maybe (Cursor Value Value)
   , pageNext :: Maybe (Cursor Value Value)
   }
   deriving (Functor)
@@ -78,6 +81,8 @@ data Page a = Page
 instance ToJSON a => ToJSON (Page a) where
   toJSON p = object
     [ "data" .= pageData p
+    , "first" .= pageFirst p
+    , "previous" .= pagePrevious p
     , "next" .= pageNext p
     ]
 
@@ -89,7 +94,7 @@ instance ToJSON a => ToJSON (Page a) where
 data Cursor params position = Cursor
   { cursorPath :: Text -- ^ The path of the parsed request
   , cursorParams :: params -- ^ Query parameters passed from the request
-  , cursorLastPosition :: Maybe position -- ^ The last position seen by the endpoint consumer
+  , cursorPosition :: Position position -- ^ The last position seen by the endpoint consumer
   , cursorLimit :: Maybe Int -- ^ The page size requested by the endpoint consumer
   }
 
@@ -98,7 +103,7 @@ instance ToJSON (Cursor Value Value) where
     let next = decodeUtf8 . Base64.encode . BSL.toStrict . encode $ object
           [ "path" .= cursorPath c
           , "params" .= cursorParams c
-          , "lastPosition" .= cursorLastPosition c
+          , "position" .= cursorPosition c
           , "limit" .= cursorLimit c
           ]
     toJSON $ cursorPath c <> "?next=" <> next
@@ -114,8 +119,25 @@ instance (FromJSON a, FromJSON b) => FromJSON (Cursor a b) where
     parseCursor o = Cursor
       <$> o .: "path"
       <*> o .: "params"
-      <*> (Just <$> o .: "lastPosition")
+      <*> o .: "position"
       <*> (o .:? "limit")
+
+data Position position = First | Previous position | Next position
+
+instance FromJSON p => FromJSON (Position p) where
+  parseJSON = withObject "Position" $ \o -> do
+    position <- o .: "position"
+    case position :: Text of
+      "first" -> pure First
+      "previous" -> Previous <$> o .: "keySet"
+      "next" -> Next <$> o .: "keySet"
+      unexpected -> fail $ show unexpected
+
+instance ToJSON p => ToJSON (Position p) where
+  toJSON = \case
+    First -> object ["position" .= ("first" :: Text)]
+    Previous p -> object ["position" .= ("previous" :: Text), "keySet" .= p]
+    Next p -> object ["position" .= ("next" :: Text), "keySet" .= p]
 
 getPaginated
   :: ( MonadHandler m
@@ -141,19 +163,28 @@ withCursor
   -> Page a
 withCursor pageConfig cursor items = Page
   { pageData = items
+  , pageFirst = makeCursor First
+  , pagePrevious = do
+    guard . not $ null items || maybe False (len <) (cursorLimit cursor)
+    Just $ makeCursor . Previous $ toJSON mFirstId
   , pageNext = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
-    Just $ Cursor
-      { cursorPath = cursorPath cursor
-      , cursorParams = toJSON $ cursorParams cursor
-      , cursorLastPosition = Just $ toJSON mLastId
-      , cursorLimit = cursorLimit cursor
-      }
+    Just $ makeCursor . Next $ toJSON mLastId
   }
  where
-  (mLastId, len) = unwrap $ foldMap wrap items
-  wrap = (, 1) . Last . Just . makePosition pageConfig
-  unwrap = bimap getLast getSum
+  (len, mFirstId, mLastId) = unwrap $ foldMap wrap items
+  wrap x =
+    ( 1
+    , Monoid.First . Just $ makePosition pageConfig x
+    , Monoid.Last . Just $ makePosition pageConfig x
+    )
+  unwrap (s, f, l) = (getSum s, getFirst f, getLast l)
+  makeCursor position = Cursor
+    { cursorPath = cursorPath cursor
+    , cursorParams = toJSON $ cursorParams cursor
+    , cursorPosition = position
+    , cursorLimit = cursorLimit cursor
+    }
 
 runParseParams
   :: (MonadHandler m, FromJSON params, FromJSON position, RenderRoute r)
@@ -165,7 +196,7 @@ runParseParams pageConfig route f = lookupGetParam "next" >>= \case
   Nothing -> do
     params <- parseParams f
     limit <- (decodeText =<<) <$> lookupGetParam "limit"
-    pure $ Cursor path params Nothing limit
+    pure $ Cursor path params First limit
   Just next -> case eitherDecodeText $ "\"" <> next <> "\"" of
     Left err -> invalidArgs [pack err]
     Right cursor -> pure cursor
