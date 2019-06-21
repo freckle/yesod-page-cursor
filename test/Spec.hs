@@ -19,17 +19,16 @@ import Data.Aeson.Lens (key, _Array, _Number, _String)
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Scientific (Scientific)
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Data.Time (UTCTime, getCurrentTime)
 import Database.Persist
   ( Filter
-  , SelectOpt(Asc, Desc, LimitTo)
+  , SelectOpt(Asc, LimitTo)
   , deleteWhere
   , insert
   , keyValueEntityToJSON
   , persistIdField
   , selectList
-  , (<.)
   , (==.)
   , (>.)
   )
@@ -89,31 +88,19 @@ getSomeR = do
       (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
   page <- withPage entityPage parseParams $ \Cursor {..} -> do
     let (teacherId, mCourseId) = cursorParams
-    fmap (sort cursorPosition) . runDB $ selectList
+    runDB $ selectList
       (catMaybes
         [ Just $ SomeAssignmentTeacherId ==. teacherId
         , (SomeAssignmentCourseId ==.) <$> mCourseId
         , whereClause cursorPosition
         ]
       )
-      [LimitTo $ fromMaybe 100 cursorLimit, orderBy cursorPosition]
+    [LimitTo $ fromMaybe 100 cursorLimit, Asc persistIdField]
   returnJson $ keyValueEntityToJSON <$> page
  where
   whereClause = \case
     First -> Nothing
-    Previous p -> Just $ persistIdField <. p
     Next p -> Just $ persistIdField >. p
-    Last -> Nothing
-  orderBy = \case
-    First -> Asc persistIdField
-    Previous _ -> Desc persistIdField
-    Next _ -> Asc persistIdField
-    Last -> Desc persistIdField
-  sort = \case
-    First -> id
-    Previous _ -> reverse
-    Next _ -> id
-    Last -> reverse
 
 main :: IO ()
 main = do
@@ -199,25 +186,6 @@ main = do
       _next <- getLink "next"
       assertKeys [1]
 
-    yit "can traverse previous" $ do
-      now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
-        deleteAssignments
-        replicateM_ 6 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
-      assertKeys [1, 2]
-      get =<< getLink "next"
-      assertKeys [3, 4]
-      get =<< getLink "next"
-      assertKeys [5, 6]
-      get =<< getLink "previous"
-      assertKeys [3, 4]
-      get =<< getLink "previous"
-      assertKeys [1, 2]
-
     yit "can link to first" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
@@ -235,32 +203,6 @@ main = do
       get =<< getLink "first"
       assertKeys [1, 2]
 
-    yit "can link to last" $ do
-      now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
-        deleteAssignments
-        replicateM_ 6 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
-      assertKeys [1, 2]
-      get =<< getLink "last"
-      assertKeys [5, 6]
-
-    yit "has no previous on first page" $ do
-      now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
-        deleteAssignments
-        replicateM_ 6 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
-      assertKeys [1, 2]
-      mPrevious <- mayLink "previous"
-      liftIO $ mPrevious `shouldBe` Nothing
-
 deleteAssignments
   :: ReaderT SqlBackend (NoLoggingT (SIO (YesodExampleData Simple))) ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
@@ -272,7 +214,7 @@ assertKeys expectedKeys = do
   liftIO $ keys `shouldBe` expectedKeys
 
 getLink :: Text -> SIO (YesodExampleData site) Text
-getLink rel = fromMaybe (error "no previous") <$> mayLink rel
+getLink rel = fromMaybe (error $ "no " <> unpack rel) <$> mayLink rel
 
 mayLink :: Text -> YesodExample site (Maybe Text)
 mayLink rel = withResponse $ pure . preview (key rel . _String) . simpleBody
