@@ -22,7 +22,7 @@ import Data.Aeson
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (fromMaybe)
-import Data.Monoid (getFirst, getLast, getSum)
+import Data.Monoid (getLast, getSum)
 import qualified Data.Monoid as Monoid
 import Data.Text (Text, intercalate, pack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -73,9 +73,7 @@ data PageConfig a position = PageConfig
 data Page a = Page
   { pageData :: [a]
   , pageFirst :: Cursor Value Value
-  , pagePrevious :: Maybe (Cursor Value Value)
   , pageNext :: Maybe (Cursor Value Value)
-  , pageLast :: Cursor Value Value
   }
   deriving (Functor)
 
@@ -83,9 +81,7 @@ instance ToJSON a => ToJSON (Page a) where
   toJSON p = object
     [ "data" .= pageData p
     , "first" .= pageFirst p
-    , "previous" .= pagePrevious p
     , "next" .= pageNext p
-    , "last" .= pageLast p
     ]
 
 -- | An encoding of the position in a page
@@ -124,24 +120,20 @@ instance (FromJSON a, FromJSON b) => FromJSON (Cursor a b) where
       <*> o .: "position"
       <*> (o .:? "limit")
 
-data Position position = First | Previous position | Next position | Last
+data Position position = First | Next position
 
 instance FromJSON p => FromJSON (Position p) where
   parseJSON = withObject "Position" $ \o -> do
     position <- o .: "position"
     case position :: Text of
       "first" -> pure First
-      "previous" -> Previous <$> o .: "keySet"
       "next" -> Next <$> o .: "keySet"
-      "last" -> pure Last
       unexpected -> fail $ show unexpected
 
 instance ToJSON p => ToJSON (Position p) where
   toJSON = \case
     First -> object ["position" .= ("first" :: Text)]
-    Previous p -> object ["position" .= ("previous" :: Text), "keySet" .= p]
     Next p -> object ["position" .= ("next" :: Text), "keySet" .= p]
-    Last -> object ["position" .= ("last" :: Text)]
 
 getPaginated
   :: ( MonadHandler m
@@ -168,26 +160,14 @@ withCursor
 withCursor pageConfig cursor items = Page
   { pageData = items
   , pageFirst = makeCursor First
-  , pagePrevious = do
-    guard $ case cursorPosition cursor of
-      First -> False
-      Previous _ -> True
-      Next _ -> True
-      Last -> True
-    Just $ makeCursor . Previous $ toJSON mFirstId
   , pageNext = do
     guard . not $ null items || maybe False (len <) (cursorLimit cursor)
     Just $ makeCursor . Next $ toJSON mLastId
-  , pageLast = makeCursor Last
   }
  where
-  (len, mFirstId, mLastId) = unwrap $ foldMap wrap items
-  wrap x =
-    ( 1
-    , Monoid.First . Just $ makePosition pageConfig x
-    , Monoid.Last . Just $ makePosition pageConfig x
-    )
-  unwrap (s, f, l) = (getSum s, getFirst f, getLast l)
+  (len, mLastId) = unwrap $ foldMap wrap items
+  wrap x = (1, Monoid.Last . Just $ makePosition pageConfig x)
+  unwrap (s, l) = (getSum s, getLast l)
   makeCursor position = Cursor
     { cursorPath = cursorPath cursor
     , cursorParams = toJSON $ cursorParams cursor
