@@ -15,9 +15,7 @@ description: Cursor based pagination for Yesod
 dependencies:
 - aeson
 - base >= 4.7 && < 5
-- base64-bytestring
 - bytestring
-- free
 - persistent
 - text
 - unliftio
