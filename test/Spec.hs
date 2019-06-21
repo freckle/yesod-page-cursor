@@ -38,21 +38,24 @@ import Database.Persist.TH
   (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
+import Network.HTTP.Types.Status (status400)
 import Network.Wai.Test (simpleBody)
 import Test.Hspec (hspec, shouldBe)
 import Yesod
-  ( MonadUnliftIO
+  ( MonadHandler
+  , MonadUnliftIO
   , Yesod
   , YesodPersist
   , YesodPersistBackend
+  , lookupGetParam
   , mkYesod
   , parseRoutes
   , renderRoute
   , returnJson
   , runDB
+  , sendResponseStatus
   )
 import Yesod.Page
-import qualified Yesod.Page.QueryParam as Param
 import Yesod.Test
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
@@ -81,20 +84,27 @@ mkYesod "Simple" [parseRoutes|
 /some-route SomeR GET
 |]
 
+optionalParam :: Read a => MonadHandler m => Text -> m (Maybe a)
+optionalParam name = fmap (read . unpack) <$> lookupGetParam name
+
+requireParam :: (MonadHandler m, Read a) => Text -> m a
+requireParam name = maybe badRequest pure =<< optionalParam name
+ where
+  badRequest =
+    sendResponseStatus status400 $ "A " <> name <> " parameter is required."
+
 getSomeR :: Handler Value
 getSomeR = do
-  let
-    parseParams =
-      (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
-  page <- withPage entityPage parseParams $ \Cursor {..} -> do
-    let (teacherId, mCourseId) = cursorParams
-    runDB $ selectList
-      (catMaybes
-        [ Just $ SomeAssignmentTeacherId ==. teacherId
-        , (SomeAssignmentCourseId ==.) <$> mCourseId
-        , whereClause cursorPosition
-        ]
-      )
+  teacherId <- requireParam "teacherId"
+  mCourseId <- optionalParam "courseId"
+
+  page <- withPage entityPage $ \Cursor {..} -> runDB $ selectList
+    (catMaybes
+      [ Just $ SomeAssignmentTeacherId ==. teacherId
+      , (SomeAssignmentCourseId ==.) <$> mCourseId
+      , whereClause cursorPosition
+      ]
+    )
     [LimitTo $ fromMaybe 100 cursorLimit, Asc persistIdField]
   returnJson $ keyValueEntityToJSON <$> page
  where

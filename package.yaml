@@ -25,6 +25,8 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+  - containers
 
 tests:
   yesod-page-cursor-test:
@@ -36,6 +38,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hspec
+    - http-types
     - lens
     - lens-aeson
     - monad-logger
