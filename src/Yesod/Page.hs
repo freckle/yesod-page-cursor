@@ -41,9 +41,19 @@ withPage
   => PageConfig a position
   -> (Cursor position -> m [a]) -- ^ Handler
   -> m (Page a)
-withPage pageConfig go = do
-  (cursor, with) <- getPaginated pageConfig
-  with <$> go cursor
+withPage pageConfig fetchItems = do
+  cursor <- parseCursorParams pageConfig
+  items <- fetchItems cursor
+
+  let (len, mLast) = getLengthAndLast items
+
+  pure Page
+    { pageData = items
+    , pageFirst = cursorRouteAtPosition cursor First
+    , pageNext = do
+      guard . not $ null items || maybe False (len <) (cursorLimit cursor)
+      cursorRouteAtPosition cursor . Next . makePosition pageConfig <$> mLast
+    }
 
 data PageConfig a position = PageConfig
   { baseDomain :: Maybe Text
@@ -90,47 +100,20 @@ instance ToJSON p => ToJSON (Position p) where
     First -> object ["position" .= ("first" :: Text)]
     Next p -> object ["position" .= ("next" :: Text), "keySet" .= p]
 
-getPaginated
-  :: ( MonadHandler m
-     , ToJSON position
-     , FromJSON position
-     , RenderRoute (HandlerSite m)
-     )
-  => PageConfig a position
-  -> m (Cursor position, [a] -> Page a)
-getPaginated pageConfig = do
-  cursor <- runParseParams pageConfig
-  pure (cursor, withCursor pageConfig cursor)
+cursorRouteAtPosition
+  :: ToJSON position => Cursor position -> Position position -> RenderedRoute
+cursorRouteAtPosition cursor = \case
+  First -> withPosition Nothing
+  Next p -> withPosition $ Just $ encodeText p
+  where withPosition mPosition = updateQueryParameter "position" mPosition $ cursorRoute cursor
 
-withCursor
-  :: (ToJSON position)
-  => PageConfig a position
-  -> Cursor position
-  -> [a]
-  -> Page a
-withCursor pageConfig cursor items = Page
-  { pageData = items
-  , pageFirst = makeRoute $ nextParameter First
-  , pageNext = do
-    guard . not $ null items || maybe False (len <) (cursorLimit cursor)
-    makeRoute . nextParameter . Next <$> mLastId
-  }
- where
-  (len, mLastId) = unwrap $ foldMap wrap items
-  wrap x = (1, Monoid.Last . Just $ makePosition pageConfig x)
-  unwrap (s, l) = (getSum s, getLast l)
-  makeRoute mNext = updateQueryParameter "next" mNext $ cursorRoute cursor
-  nextParameter = \case
-    First -> Nothing
-    Next p -> Just $ encodeText p
-
-runParseParams
+parseCursorParams
   :: (MonadHandler m, FromJSON position, RenderRoute (HandlerSite m))
   => PageConfig a position
   -> m (Cursor position)
-runParseParams pageConfig = do
-  meNext <- fmap eitherDecodeText <$> lookupGetParam "next"
-  position <- case meNext of
+parseCursorParams pageConfig = do
+  mePosition <- fmap eitherDecodeText <$> lookupGetParam "position"
+  position <- case mePosition of
     Nothing -> pure First
     Just (Left err) -> invalidArgs [pack err]
     Just (Right p) -> pure $ Next p
@@ -149,3 +132,9 @@ decodeText = decode . BSL.fromStrict . encodeUtf8
 
 encodeText :: ToJSON a => a -> Text
 encodeText = decodeUtf8 . BSL.toStrict . encode
+
+getLengthAndLast :: [a] -> (Int, Maybe a)
+getLengthAndLast xs = unwrap $ foldMap wrap xs
+ where
+  wrap x = (1, Monoid.Last $ Just x)
+  unwrap (s, l) = (getSum s, getLast l)
