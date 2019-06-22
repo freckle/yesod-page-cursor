@@ -22,7 +22,8 @@ import Data.Scientific (Scientific)
 import Data.Text (Text, unpack)
 import Data.Time (UTCTime, getCurrentTime)
 import Database.Persist
-  ( Filter
+  ( Entity(entityKey)
+  , Filter
   , SelectOpt(Asc, LimitTo)
   , deleteWhere
   , insert
@@ -98,7 +99,7 @@ getSomeR = do
   teacherId <- requireParam "teacherId"
   mCourseId <- optionalParam "courseId"
 
-  page <- withPage entityPage $ \Cursor {..} -> runDB $ selectList
+  page <- withPage entityKey $ \Cursor {..} -> runDB $ selectList
     (catMaybes
       [ Just $ SomeAssignmentTeacherId ==. teacherId
       , (SomeAssignmentCourseId ==.) <$> mCourseId

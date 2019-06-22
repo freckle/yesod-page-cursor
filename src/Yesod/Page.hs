@@ -10,9 +10,6 @@ module Yesod.Page
   , Page(..)
   , Cursor(..)
   , Position(..)
-  -- * Configuration
-  , PageConfig(..)
-  , entityPage
   )
 where
 
@@ -23,14 +20,9 @@ import Data.Monoid (getLast, getSum)
 import qualified Data.Monoid as Monoid
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Database.Persist
 import Yesod.Core
   (HandlerSite, MonadHandler, RenderRoute, invalidArgs, lookupGetParam)
 import Yesod.Page.RenderedRoute
-
--- | Configuration for an unsorted persistent Entity page
-entityPage :: PageConfig (Entity a) (Key a)
-entityPage = PageConfig Nothing entityKey
 
 withPage
   :: ( MonadHandler m
@@ -38,11 +30,16 @@ withPage
      , FromJSON position
      , RenderRoute (HandlerSite m)
      )
-  => PageConfig a position
-  -> (Cursor position -> m [a]) -- ^ Handler
+  => (a -> position)
+  -- ^ How to get an item's position
+  --
+  -- For example, this would be @'entityKey'@ for paginated @'Entity'@ values.
+  --
+  -> (Cursor position -> m [a])
+  -- ^ How to fetch one page of data at the given @'Cursor'@
   -> m (Page a)
-withPage pageConfig fetchItems = do
-  cursor <- parseCursorParams pageConfig
+withPage makePosition fetchItems = do
+  cursor <- parseCursorParams
   items <- fetchItems cursor
 
   let (len, mLast) = getLengthAndLast items
@@ -52,13 +49,8 @@ withPage pageConfig fetchItems = do
     , pageFirst = cursorRouteAtPosition cursor First
     , pageNext = do
       guard . not $ null items || maybe False (len <) (cursorLimit cursor)
-      cursorRouteAtPosition cursor . Next . makePosition pageConfig <$> mLast
+      cursorRouteAtPosition cursor . Next . makePosition <$> mLast
     }
-
-data PageConfig a position = PageConfig
-  { baseDomain :: Maybe Text
-  , makePosition :: a -> position
-  }
 
 data Page a = Page
   { pageData :: [a]
@@ -92,13 +84,14 @@ cursorRouteAtPosition
 cursorRouteAtPosition cursor = \case
   First -> withPosition Nothing
   Next p -> withPosition $ Just $ encodeText p
-  where withPosition mPosition = updateQueryParameter "position" mPosition $ cursorRoute cursor
+ where
+  withPosition mPosition =
+    updateQueryParameter "position" mPosition $ cursorRoute cursor
 
 parseCursorParams
   :: (MonadHandler m, FromJSON position, RenderRoute (HandlerSite m))
-  => PageConfig a position
-  -> m (Cursor position)
-parseCursorParams pageConfig = do
+  => m (Cursor position)
+parseCursorParams = do
   mePosition <- fmap eitherDecodeText <$> lookupGetParam "position"
   position <- case mePosition of
     Nothing -> pure First
@@ -107,7 +100,7 @@ parseCursorParams pageConfig = do
 
   -- TODO: limit is a simple number always; do we need FromJSON?
   mLimit <- (decodeText =<<) <$> lookupGetParam "limit"
-  renderedRoute <- getRenderedRoute $ baseDomain pageConfig
+  renderedRoute <- getRenderedRoute
 
   pure $ Cursor renderedRoute position mLimit
 
