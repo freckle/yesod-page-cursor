@@ -87,19 +87,6 @@ data Cursor position = Cursor
 
 data Position position = First | Next position
 
-instance FromJSON p => FromJSON (Position p) where
-  parseJSON = withObject "Position" $ \o -> do
-    position <- o .: "position"
-    case position :: Text of
-      "first" -> pure First
-      "next" -> Next <$> o .: "keySet"
-      unexpected -> fail $ show unexpected
-
-instance ToJSON p => ToJSON (Position p) where
-  toJSON = \case
-    First -> object ["position" .= ("first" :: Text)]
-    Next p -> object ["position" .= ("next" :: Text), "keySet" .= p]
-
 cursorRouteAtPosition
   :: ToJSON position => Cursor position -> Position position -> RenderedRoute
 cursorRouteAtPosition cursor = \case
