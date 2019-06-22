@@ -14,7 +14,6 @@ where
 import Data.Aeson
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 import Data.Text (Text, intercalate)
 import UnliftIO (throwString)
 import Yesod.Core
@@ -29,8 +28,7 @@ import Yesod.Core
 
 -- | Information about the initial route
 data RenderedRoute = RenderedRoute
-  { renderedRouteDomain :: Maybe Text
-  , renderedRoutePath :: [Text]
+  { renderedRoutePath :: [Text]
   , renderedRouteQuery :: [(Text, Text)]
   }
 
@@ -42,30 +40,16 @@ instance ToJSON RenderedRoute where
   -- pass the current test suite.
   --
   toJSON RenderedRoute {..} = String
-    $ fromMaybe "" renderedRouteDomain
-    <> intercalate "/" renderedRoutePath
+    $ intercalate "/" renderedRoutePath
     <> renderQuery renderedRouteQuery
    where
     renderQuery [] = ""
     renderQuery qs = "?" <> intercalate "&" (map (\(k, v) -> k <> "=" <> v) qs)
 
 -- | Get the current route as a @'RenderedRoute'@
---
--- TODO: supplying the domain is a transitional thing to ease the diff with
--- previous code, we can just grab Host off the @'Request'@ here, I think.
---
--- That would:
---
--- 1. Simplify @'PageConfig'@ further
--- 2. Be more robust to to different Approot configurations
--- 3. Be more directly our intentions (IMO), which are: visit this same Host
---    but with these updated parameters
---
 getRenderedRoute
-  :: (MonadHandler m, RenderRoute (HandlerSite m))
-  => Maybe Text
-  -> m RenderedRoute
-getRenderedRoute domain = do
+  :: (MonadHandler m, RenderRoute (HandlerSite m)) => m RenderedRoute
+getRenderedRoute = do
   route <- maybe (throwString "no route") pure =<< getCurrentRoute
 
   -- When I just use _query, it's always empty. Why would renderRoute return
@@ -73,11 +57,7 @@ getRenderedRoute domain = do
   let (path, _query) = renderRoute route
   query <- reqGetParams <$> getRequest
 
-  pure $ RenderedRoute
-    { renderedRouteDomain = domain
-    , renderedRoutePath = path
-    , renderedRouteQuery = query
-    }
+  pure $ RenderedRoute {renderedRoutePath = path, renderedRouteQuery = query}
 
 -- | Update a single query parameter and preserve the rest
 --
