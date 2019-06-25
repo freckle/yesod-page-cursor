@@ -6,7 +6,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Yesod.Page
-  ( withPage
+  ( withPageLink
+  , withPage
   , Page(..)
   , Cursor(..)
   , Position(..)
@@ -16,13 +17,42 @@ where
 import Control.Monad (guard)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
+import Data.Maybe (catMaybes)
 import Data.Monoid (getLast, getSum)
 import qualified Data.Monoid as Monoid
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Network.HTTP.Link (writeLinkHeader)
 import Yesod.Core
-  (HandlerSite, MonadHandler, RenderRoute, invalidArgs, lookupGetParam)
+  ( HandlerSite
+  , MonadHandler
+  , RenderRoute
+  , addHeader
+  , invalidArgs
+  , lookupGetParam
+  )
 import Yesod.Page.RenderedRoute
+
+-- | @'withPage'@ and adding pagination data to a @Link@ response header
+withPageLink
+  :: ( MonadHandler m
+     , ToJSON position
+     , FromJSON position
+     , RenderRoute (HandlerSite m)
+     )
+  => (a -> position)
+  -> (Cursor position -> m [a])
+  -> m [a]
+withPageLink makePosition fetchItems = do
+  page <- withPage makePosition fetchItems
+
+  let
+    link = writeLinkHeader $ catMaybes
+      [ Just $ renderedRouteLink "first" $ pageFirst page
+      , renderedRouteLink "next" <$> pageNext page
+      ]
+
+  pageData page <$ addHeader "Link" link
 
 withPage
   :: ( MonadHandler m

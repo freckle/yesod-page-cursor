@@ -24,6 +24,8 @@ library:
   source-dirs: src
   dependencies:
   - containers
+  - http-link-header
+  - network-uri
 
 tests:
   yesod-page-cursor-test:
@@ -35,6 +37,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hspec
+    - http-link-header
     - http-types
     - lens
     - lens-aeson
