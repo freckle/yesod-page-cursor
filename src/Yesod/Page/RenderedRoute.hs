@@ -6,6 +6,7 @@
 
 module Yesod.Page.RenderedRoute
   ( RenderedRoute
+  , renderedRouteLink
   , getRenderedRoute
   , updateQueryParameter
   )
@@ -14,7 +15,9 @@ where
 import Data.Aeson
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Text (Text, intercalate)
+import Data.Text (Text, intercalate, pack, unpack)
+import Network.HTTP.Link
+import Network.URI (URI(..), escapeURIString, isUnescapedInURIComponent)
 import UnliftIO (throwString)
 import Yesod.Core
   ( HandlerSite
@@ -26,25 +29,33 @@ import Yesod.Core
   , reqGetParams
   )
 
--- | Information about the initial route
+-- | Information about a relative Route with query string
 data RenderedRoute = RenderedRoute
   { renderedRoutePath :: [Text]
   , renderedRouteQuery :: [(Text, Text)]
   }
 
 instance ToJSON RenderedRoute where
-  -- | Renders as a @'Text'@ URL
-  --
-  -- FIXME: This is wildly naive and we should move to a proper library to
-  -- ensure escaping is handled, but it's meant only to prove the approach and
-  -- pass the current test suite.
-  --
-  toJSON RenderedRoute {..} = String
-    $ intercalate "/" renderedRoutePath
-    <> renderQuery renderedRouteQuery
-   where
-    renderQuery [] = ""
-    renderQuery qs = "?" <> intercalate "&" (map (\(k, v) -> k <> "=" <> v) qs)
+  toJSON = String . pack . show . renderedRouteURI
+
+-- | Convert a @'RenderedRoute'@ into a @'Link'@ with the given @'Rel'@
+renderedRouteLink :: Text -> RenderedRoute -> Link
+renderedRouteLink rel = flip Link [(Rel, rel)] . renderedRouteURI
+
+-- | Convert a @'RenderedRoute'@ into a (relative) @'URI'@
+renderedRouteURI :: RenderedRoute -> URI
+renderedRouteURI RenderedRoute {..} = URI
+  { uriScheme = ""
+  , uriAuthority = Nothing
+  , uriPath = unpack $ "/" <> intercalate "/" renderedRoutePath
+  , uriQuery = unpack $ query renderedRouteQuery
+  , uriFragment = ""
+  }
+ where
+  query [] = ""
+  query qs = "?" <> intercalate "&" (parts qs)
+  parts = map $ \(k, v) -> k <> "=" <> escape v
+  escape = pack . escapeURIString isUnescapedInURIComponent . unpack
 
 -- | Get the current route as a @'RenderedRoute'@
 getRenderedRoute
