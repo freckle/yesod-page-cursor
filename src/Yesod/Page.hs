@@ -17,7 +17,7 @@ where
 import Control.Monad (guard)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid (getLast, getSum)
 import qualified Data.Monoid as Monoid
 import Data.Text (Text, pack)
@@ -78,7 +78,7 @@ withPage makePosition fetchItems = do
     { pageData = items
     , pageFirst = cursorRouteAtPosition cursor First
     , pageNext = do
-      guard . not $ null items || maybe False (len <) (cursorLimit cursor)
+      guard . not $ null items || len < cursorLimit cursor
       cursorRouteAtPosition cursor . Next . makePosition <$> mLast
     }
 
@@ -104,7 +104,7 @@ instance ToJSON a => ToJSON (Page a) where
 data Cursor position = Cursor
   { cursorRoute :: RenderedRoute -- ^ The route of the parsed request
   , cursorPosition :: Position position -- ^ The last position seen by the endpoint consumer
-  , cursorLimit :: Maybe Int -- ^ The page size requested by the endpoint consumer
+  , cursorLimit :: Int -- ^ The page size requested by the endpoint consumer
   }
 
 data Position position = First | Next position
@@ -132,7 +132,7 @@ parseCursorParams = do
   mLimit <- (decodeText =<<) <$> lookupGetParam "limit"
   renderedRoute <- getRenderedRoute
 
-  pure $ Cursor renderedRoute position mLimit
+  pure $ Cursor renderedRoute position $ fromMaybe 100 mLimit
 
 eitherDecodeText :: FromJSON a => Text -> Either String a
 eitherDecodeText = eitherDecode . BSL.fromStrict . encodeUtf8

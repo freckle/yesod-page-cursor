@@ -123,7 +123,7 @@ makePaginationRoute withPage' = do
       , whereClause cursorPosition
       ]
     )
-    [LimitTo $ fromMaybe 100 cursorLimit, Asc persistIdField]
+    [LimitTo cursorLimit, Asc persistIdField]
   returnJson $ keyValueEntityToJSON <$> items
  where
   whereClause = \case
@@ -167,6 +167,17 @@ main = do
         addGetParam "teacherId" "1"
         addGetParam "limit" "3"
       assertDataKeys [1, 2]
+      mNext <- mayLink "next"
+      liftIO $ mNext `shouldBe` Nothing
+
+    yit "finds a null next even with limit defaulted" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 2 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
