@@ -181,6 +181,18 @@ main = do
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
+    yit "finds a null next even with page-aligned data" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 2 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      mNext <- mayLink "next"
+      liftIO $ mNext `shouldBe` Nothing
+
     yit "returns the same response for the same cursor" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do

@@ -18,8 +18,6 @@ import Control.Monad (guard)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.Monoid (getLast, getSum)
-import qualified Data.Monoid as Monoid
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Network.HTTP.Link (writeLinkHeader)
@@ -70,16 +68,22 @@ withPage
   -> m (Page a)
 withPage makePosition fetchItems = do
   cursor <- parseCursorParams
-  items <- fetchItems cursor
 
-  let (len, mLast) = getLengthAndLast items
+  -- We have to fetch page-size+1 items to know if there is a next page or not
+  let realLimit = cursorLimit cursor
+  items <- fetchItems cursor { cursorLimit = realLimit + 1 }
 
   pure Page
-    { pageData = items
+    { pageData = take realLimit items
     , pageFirst = cursorRouteAtPosition cursor First
     , pageNext = do
-      guard . not $ null items || len < cursorLimit cursor
-      cursorRouteAtPosition cursor . Next . makePosition <$> mLast
+      guard $ length items > realLimit
+      pure
+        $ cursorRouteAtPosition cursor
+        $ Next
+        $ makePosition
+        $ items
+        !! (realLimit - 1)
     }
 
 data Page a = Page
@@ -142,9 +146,3 @@ decodeText = decode . BSL.fromStrict . encodeUtf8
 
 encodeText :: ToJSON a => a -> Text
 encodeText = decodeUtf8 . BSL.toStrict . encode
-
-getLengthAndLast :: [a] -> (Int, Maybe a)
-getLengthAndLast xs = unwrap $ foldMap wrap xs
- where
-  wrap x = (1, Monoid.Last $ Just x)
-  unwrap (s, l) = (getSum s, getLast l)
