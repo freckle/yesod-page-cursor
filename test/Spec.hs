@@ -6,8 +6,9 @@ module Main
 where
 
 import Control.Lens (preview, (^..))
-import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
-import Control.Monad.Reader (ReaderT, liftIO, replicateM_)
+import Control.Monad (replicateM_)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Logger (runNoLoggingT)
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import Data.ByteString.Lazy (ByteString)
 import Data.List (find)
@@ -17,19 +18,22 @@ import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (getCurrentTime)
 import Database.Persist (Filter, deleteWhere, insert)
-import Database.Persist.Sql (SqlBackend, runMigration)
+import Database.Persist.Sql (SqlPersistT, runMigration)
 import GHC.Stack (HasCallStack)
 import Network.HTTP.Link
 import Network.Wai.Test (simpleBody, simpleHeaders)
-import Test.Hspec (hspec, shouldBe)
+import Test.Hspec
+  (Spec, SpecWith, before, beforeAll_, describe, hspec, it, shouldBe)
 import TestApp
 import Yesod.Test
 
 main :: IO ()
-main = do
-  runNoLoggingT . runDB' $ runMigration migrateAll
-  hspec . yesodSpec Simple $ ydescribe "Cursor" $ do
-    yit "responds with a useful message on invalid limit" $ do
+main = hspec spec
+
+spec :: Spec
+spec = withApp $ do
+  describe "Cursor" $ do
+    it "responds with a useful message on invalid limit" $ do
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
@@ -38,18 +42,16 @@ main = do
       statusIs 400
       bodyContains "must be positive and non-zero"
 
-    yit "returns no cursor when there are no items" $ do
-      runNoLoggingT . runDB' $ deleteAssignments
+    it "returns no cursor when there are no items" $ do
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
-    yit "traverses a list with a next Cursor" $ do
+    it "traverses a list with a next Cursor" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 12 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -61,10 +63,9 @@ main = do
       get =<< getLink "next"
       assertDataKeys [9, 10, 11, 12]
 
-    yit "finds a null next when no items are left" $ do
+    it "finds a null next when no items are left" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -74,10 +75,9 @@ main = do
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
-    yit "finds a null next even with limit defaulted" $ do
+    it "finds a null next even with limit defaulted" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -85,10 +85,9 @@ main = do
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
-    yit "finds a null next even with page-aligned data" $ do
+    it "finds a null next even with page-aligned data" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -97,10 +96,9 @@ main = do
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
-    yit "finds a null next on the last page" $ do
+    it "finds a null next on the last page" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -110,10 +108,9 @@ main = do
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
-    yit "finds a null previous on the first page" $ do
+    it "finds a null previous on the first page" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -122,10 +119,9 @@ main = do
       mPrevious <- mayLink "previous"
       liftIO $ mPrevious `shouldBe` Nothing
 
-    yit "returns the same response for the same cursor" $ do
+    it "returns the same response for the same cursor" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -142,10 +138,9 @@ main = do
       response2 <- go
       liftIO $ response1 `shouldBe` response2
 
-    yit "limits are optional" $ do
+    it "limits are optional" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -153,10 +148,9 @@ main = do
       _next <- getLink "next"
       assertDataKeys [1, 2, 3, 4, 5]
 
-    yit "parses optional params" $ do
+    it "parses optional params" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         _ <- insert $ SomeAssignment 1 3 now
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
@@ -166,10 +160,9 @@ main = do
       _next <- getLink "next"
       assertDataKeys [1]
 
-    yit "can link to first" $ do
+    it "can link to first" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -183,10 +176,9 @@ main = do
       get =<< getLink "first"
       assertDataKeys [1, 2]
 
-    yit "can link to last" $ do
+    it "can link to last" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -200,10 +192,9 @@ main = do
       get =<< getLink "previous"
       assertDataKeys [1, 2]
 
-    yit "can traverse via Link" $ do
+    it "can traverse via Link" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
-        deleteAssignments
         replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeLinkR
@@ -223,8 +214,16 @@ main = do
       get =<< getLinkViaHeader "previous"
       assertKeys [1, 2]
 
-deleteAssignments
-  :: ReaderT SqlBackend (NoLoggingT (SIO (YesodExampleData Simple))) ()
+withApp :: SpecWith (TestApp Simple) -> Spec
+withApp = before (testApp Simple id <$ wipeDB) . beforeAll_ setupDB
+
+setupDB :: IO ()
+setupDB = liftIO $ runNoLoggingT . runDB' $ runMigration migrateAll
+
+wipeDB :: IO ()
+wipeDB = liftIO $ runNoLoggingT . runDB' $ deleteAssignments
+
+deleteAssignments :: MonadIO m => SqlPersistT m ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
 
 assertDataKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
