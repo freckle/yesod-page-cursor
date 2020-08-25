@@ -204,31 +204,31 @@ getPaginated url params = request $ do
   setUrl url
   traverse_ (uncurry addGetParam) params
 
-assertDataKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
+assertDataKeys :: HasCallStack => [Scientific] -> YesodExample site ()
 assertDataKeys expectedKeys = do
   statusIs 200
   keys <- getDataKeys
   keys `shouldBe` expectedKeys
 
-assertKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
+assertKeys :: HasCallStack => [Scientific] -> YesodExample site ()
 assertKeys expectedKeys = do
   statusIs 200
   keys <- getKeys
   keys `shouldBe` expectedKeys
 
-getLink :: HasCallStack => Text -> SIO (YesodExampleData site) Text
+getLink :: HasCallStack => Text -> YesodExample site Text
 getLink rel =
   fromMaybe (error $ "no " <> unpack rel <> " in JSON response") <$> mayLink rel
 
 mayLink :: Text -> YesodExample site (Maybe Text)
 mayLink rel = withResponse $ pure . preview (key rel . _String) . simpleBody
 
-getLinkViaHeader :: HasCallStack => Text -> SIO (YesodExampleData site) Text
+getLinkViaHeader :: HasCallStack => Text -> YesodExample site Text
 getLinkViaHeader rel =
   fromMaybe (error $ "no " <> unpack rel <> " in Link header")
     <$> mayLinkViaHeader rel
 
-mayLinkViaHeader :: Text -> SIO (YesodExampleData site) (Maybe Text)
+mayLinkViaHeader :: Text -> YesodExample site (Maybe Text)
 mayLinkViaHeader rel = withResponse $ \resp -> pure $ do
   header <- lookup "Link" $ simpleHeaders resp
   parsed <- either (const Nothing) Just $ parseLinkHeader' $ decodeUtf8 header
