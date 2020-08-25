@@ -8,7 +8,8 @@ where
 import Control.Lens (preview, (^..))
 import Control.Monad (replicateM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Logger (runNoLoggingT)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
+import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import Data.ByteString.Lazy (ByteString)
 import Data.List (find)
@@ -212,10 +213,13 @@ withApp :: SpecWith (TestApp Simple) -> Spec
 withApp = before (testApp Simple id <$ wipeDB) . beforeAll_ setupDB
 
 setupDB :: IO ()
-setupDB = liftIO $ runNoLoggingT . runDB' $ runMigration migrateAll
+setupDB = liftIO $ runDB $ runMigration migrateAll
 
 wipeDB :: IO ()
-wipeDB = liftIO $ runNoLoggingT . runDB' $ deleteAssignments
+wipeDB = liftIO $ runDB deleteAssignments
+
+runDB :: MonadUnliftIO m => SqlPersistT (NoLoggingT m) a -> m a
+runDB = runNoLoggingT . runDB'
 
 deleteAssignments :: MonadIO m => SqlPersistT m ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
