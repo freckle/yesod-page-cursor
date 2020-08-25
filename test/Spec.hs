@@ -36,9 +36,9 @@ import Database.Persist
   , keyValueEntityToJSON
   , persistIdField
   , selectList
+  , (<.)
   , (==.)
   , (>.)
-  , (<.)
   )
 import Database.Persist.Sql (SqlBackend, runMigration)
 import Database.Persist.Sqlite (withSqliteConn)
@@ -110,7 +110,7 @@ getSomeLinkR :: Handler Value
 getSomeLinkR = makePaginationRoute withPageLink
 
 type Pagination m f a
-    = (Entity a -> Key a) -> (Cursor (Key a) -> m [Entity a]) -> m (f (Entity a))
+  = (Entity a -> Key a) -> (Cursor (Key a) -> m [Entity a]) -> m (f (Entity a))
 
 makePaginationRoute
   :: (Functor f, ToJSON (f Value))
@@ -372,7 +372,8 @@ mayLink rel = withResponse $ pure . preview (key rel . _String) . simpleBody
 
 getLinkViaHeader :: HasCallStack => Text -> SIO (YesodExampleData site) Text
 getLinkViaHeader rel =
-  fromMaybe (error $ "no " <> unpack rel <> " in Link header") <$> mayLinkViaHeader rel
+  fromMaybe (error $ "no " <> unpack rel <> " in Link header")
+    <$> mayLinkViaHeader rel
 
 mayLinkViaHeader :: Text -> SIO (YesodExampleData site) (Maybe Text)
 mayLinkViaHeader rel = withResponse $ \resp -> pure $ do

@@ -1,10 +1,10 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Yesod.Page
   ( withPageLink
@@ -23,9 +23,9 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable (asum)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text, pack, unpack)
-import Text.Read (readMaybe)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Network.HTTP.Link (writeLinkHeader)
+import Text.Read (readMaybe)
 import Yesod.Core
   ( HandlerSite
   , MonadHandler
