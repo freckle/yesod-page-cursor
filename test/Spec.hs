@@ -17,7 +17,7 @@ import Control.Monad.Reader (ReaderT, liftIO, replicateM_, runReaderT)
 import Data.Aeson (ToJSON, Value, defaultOptions, genericToJSON, toJSON)
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import Data.ByteString.Lazy (ByteString)
-import Data.List (find)
+import Data.List (find, sortOn)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Scientific (Scientific)
 import Data.Text (Text, pack, unpack)
@@ -27,7 +27,7 @@ import Database.Persist
   ( Entity(entityKey)
   , Filter
   , Key
-  , SelectOpt(Asc, LimitTo)
+  , SelectOpt(..)
   , deleteWhere
   , insert
   , keyValueEntityToJSON
@@ -35,6 +35,7 @@ import Database.Persist
   , selectList
   , (==.)
   , (>.)
+  , (<.)
   )
 import Database.Persist.Sql (SqlBackend, runMigration)
 import Database.Persist.Sqlite (withSqliteConn)
@@ -116,19 +117,34 @@ makePaginationRoute withPage' = do
   teacherId <- requireParam "teacherId"
   mCourseId <- optionalParam "courseId"
 
-  items <- withPage' entityKey $ \Cursor {..} -> runDB $ selectList
-    (catMaybes
-      [ Just $ SomeAssignmentTeacherId ==. teacherId
-      , (SomeAssignmentCourseId ==.) <$> mCourseId
-      , whereClause cursorPosition
-      ]
-    )
-    [LimitTo $ unLimit cursorLimit, Asc persistIdField]
+  items <- withPage' entityKey $ \Cursor {..} ->
+    runDB $ sort cursorPosition <$> selectList
+      (catMaybes
+        [ Just $ SomeAssignmentTeacherId ==. teacherId
+        , (SomeAssignmentCourseId ==.) <$> mCourseId
+        , whereClause cursorPosition
+        ]
+      )
+      [LimitTo $ unLimit cursorLimit, orderBy cursorPosition]
   returnJson $ keyValueEntityToJSON <$> items
  where
   whereClause = \case
     First -> Nothing
     Next p -> Just $ persistIdField >. p
+    Previous p -> Just $ persistIdField <. p
+    Last -> Nothing
+
+  orderBy = \case
+    First -> Asc persistIdField
+    Next{} -> Asc persistIdField
+    Previous{} -> Desc persistIdField
+    Last -> Desc persistIdField
+
+  sort = \case
+    First -> id
+    Next{} -> id
+    Previous{} -> sortOn entityKey
+    Last -> sortOn entityKey
 
 main :: IO ()
 main = do
@@ -202,6 +218,31 @@ main = do
       mNext <- mayLink "next"
       liftIO $ mNext `shouldBe` Nothing
 
+    yit "finds a null next on the last page" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 2 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      get =<< getLink "last"
+      mNext <- mayLink "next"
+      liftIO $ mNext `shouldBe` Nothing
+
+    yit "finds a null previous on the first page" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 2 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      mPrevious <- mayLink "previous"
+      liftIO $ mPrevious `shouldBe` Nothing
+
     yit "returns the same response for the same cursor" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
@@ -263,6 +304,23 @@ main = do
       get =<< getLink "first"
       assertDataKeys [1, 2]
 
+    yit "can link to last" $ do
+      now <- liftIO getCurrentTime
+      runNoLoggingT . runDB' $ do
+        deleteAssignments
+        replicateM_ 6 . insert $ SomeAssignment 1 2 now
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "2"
+      assertDataKeys [1, 2]
+      get =<< getLink "last"
+      assertDataKeys [5, 6]
+      get =<< getLink "previous"
+      assertDataKeys [3, 4]
+      get =<< getLink "previous"
+      assertDataKeys [1, 2]
+
     yit "can traverse via Link" $ do
       now <- liftIO getCurrentTime
       runNoLoggingT . runDB' $ do
@@ -278,6 +336,12 @@ main = do
       get =<< getLinkViaHeader "next"
       assertKeys [5, 6]
       get =<< getLinkViaHeader "first"
+      assertKeys [1, 2]
+      get =<< getLinkViaHeader "last"
+      assertKeys [5, 6]
+      get =<< getLinkViaHeader "previous"
+      assertKeys [3, 4]
+      get =<< getLinkViaHeader "previous"
       assertKeys [1, 2]
 
 deleteAssignments
@@ -296,23 +360,23 @@ assertKeys expectedKeys = do
   keys <- getKeys
   liftIO $ keys `shouldBe` expectedKeys
 
-getLink :: Text -> SIO (YesodExampleData site) Text
-getLink rel = fromMaybe (error $ "no " <> unpack rel) <$> mayLink rel
+getLink :: HasCallStack => Text -> SIO (YesodExampleData site) Text
+getLink rel =
+  fromMaybe (error $ "no " <> unpack rel <> " in JSON response") <$> mayLink rel
 
 mayLink :: Text -> YesodExample site (Maybe Text)
 mayLink rel = withResponse $ pure . preview (key rel . _String) . simpleBody
 
-getLinkViaHeader :: Text -> SIO (YesodExampleData site) Text
-getLinkViaHeader rel = withResponse $ \resp -> do
-  let
-    mLink = do
-      header <- lookup "Link" $ simpleHeaders resp
-      parsed <- either (const Nothing) Just $ parseLinkHeader' $ decodeUtf8
-        header
-      link <- find (((Rel, rel) `elem`) . linkParams) parsed
-      pure $ pack $ show $ href link
+getLinkViaHeader :: HasCallStack => Text -> SIO (YesodExampleData site) Text
+getLinkViaHeader rel =
+  fromMaybe (error $ "no " <> unpack rel <> " in Link header") <$> mayLinkViaHeader rel
 
-  pure $ fromMaybe (error $ "no " <> unpack rel) mLink
+mayLinkViaHeader :: Text -> SIO (YesodExampleData site) (Maybe Text)
+mayLinkViaHeader rel = withResponse $ \resp -> pure $ do
+  header <- lookup "Link" $ simpleHeaders resp
+  parsed <- either (const Nothing) Just $ parseLinkHeader' $ decodeUtf8 header
+  link <- find (((Rel, rel) `elem`) . linkParams) parsed
+  pure $ pack $ show $ href link
 
 getBody :: YesodExample site ByteString
 getBody = withResponse $ pure . simpleBody
