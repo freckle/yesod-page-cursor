@@ -20,7 +20,7 @@ import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (getCurrentTime)
 import Database.Persist (Filter, deleteWhere, insert)
-import Database.Persist.Sql (SqlPersistT, runMigration)
+import Database.Persist.Sql (SqlPersistT, insertMany_, runMigration)
 import GHC.Stack (HasCallStack)
 import Network.HTTP.Link
 import Network.Wai.Test (simpleBody, simpleHeaders)
@@ -193,7 +193,7 @@ deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
 insertAssignments :: MonadIO m => Int -> SqlPersistT m ()
 insertAssignments n = do
   now <- liftIO getCurrentTime
-  replicateM_ n . insert $ SomeAssignment 1 2 now
+  insertMany_ $ replicate n $ SomeAssignment 1 2 now
 
 getPaginated
   :: (Yesod site, RedirectUrl site url)
