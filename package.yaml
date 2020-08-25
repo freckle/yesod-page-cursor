@@ -37,6 +37,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hspec
+    - hspec-expectations-lifted
     - http-link-header
     - http-types
     - lens

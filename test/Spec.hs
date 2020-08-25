@@ -22,8 +22,8 @@ import Database.Persist.Sql (SqlPersistT, runMigration)
 import GHC.Stack (HasCallStack)
 import Network.HTTP.Link
 import Network.Wai.Test (simpleBody, simpleHeaders)
-import Test.Hspec
-  (Spec, SpecWith, before, beforeAll_, describe, hspec, it, shouldBe)
+import Test.Hspec (Spec, SpecWith, before, beforeAll_, describe, hspec, it)
+import Test.Hspec.Expectations.Lifted (shouldBe, shouldReturn)
 import TestApp
 import Yesod.Test
 
@@ -46,8 +46,7 @@ spec = withApp $ do
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
-      mNext <- mayLink "next"
-      liftIO $ mNext `shouldBe` Nothing
+      mayLink "next" `shouldReturn` Nothing
 
     it "traverses a list with a next Cursor" $ do
       now <- liftIO getCurrentTime
@@ -72,8 +71,7 @@ spec = withApp $ do
         addGetParam "teacherId" "1"
         addGetParam "limit" "3"
       assertDataKeys [1, 2]
-      mNext <- mayLink "next"
-      liftIO $ mNext `shouldBe` Nothing
+      mayLink "next" `shouldReturn` Nothing
 
     it "finds a null next even with limit defaulted" $ do
       now <- liftIO getCurrentTime
@@ -82,8 +80,7 @@ spec = withApp $ do
       request $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
-      mNext <- mayLink "next"
-      liftIO $ mNext `shouldBe` Nothing
+      mayLink "next" `shouldReturn` Nothing
 
     it "finds a null next even with page-aligned data" $ do
       now <- liftIO getCurrentTime
@@ -93,8 +90,7 @@ spec = withApp $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
-      mNext <- mayLink "next"
-      liftIO $ mNext `shouldBe` Nothing
+      mayLink "next" `shouldReturn` Nothing
 
     it "finds a null next on the last page" $ do
       now <- liftIO getCurrentTime
@@ -105,8 +101,7 @@ spec = withApp $ do
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
       get =<< getLink "last"
-      mNext <- mayLink "next"
-      liftIO $ mNext `shouldBe` Nothing
+      mayLink "next" `shouldReturn` Nothing
 
     it "finds a null previous on the first page" $ do
       now <- liftIO getCurrentTime
@@ -116,8 +111,7 @@ spec = withApp $ do
         setUrl SomeR
         addGetParam "teacherId" "1"
         addGetParam "limit" "2"
-      mPrevious <- mayLink "previous"
-      liftIO $ mPrevious `shouldBe` Nothing
+      mayLink "previous" `shouldReturn` Nothing
 
     it "returns the same response for the same cursor" $ do
       now <- liftIO getCurrentTime
@@ -136,7 +130,7 @@ spec = withApp $ do
           getBody
       response1 <- go
       response2 <- go
-      liftIO $ response1 `shouldBe` response2
+      response1 `shouldBe` response2
 
     it "limits are optional" $ do
       now <- liftIO getCurrentTime
@@ -230,13 +224,13 @@ assertDataKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
 assertDataKeys expectedKeys = do
   statusIs 200
   keys <- getDataKeys
-  liftIO $ keys `shouldBe` expectedKeys
+  keys `shouldBe` expectedKeys
 
 assertKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
 assertKeys expectedKeys = do
   statusIs 200
   keys <- getKeys
-  liftIO $ keys `shouldBe` expectedKeys
+  keys `shouldBe` expectedKeys
 
 getLink :: HasCallStack => Text -> SIO (YesodExampleData site) Text
 getLink rel =
