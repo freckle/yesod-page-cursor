@@ -51,7 +51,7 @@ spec = withApp $ do
 
     it "traverses a list with a next Cursor" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 12 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -65,7 +65,7 @@ spec = withApp $ do
 
     it "finds a null next when no items are left" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -76,7 +76,7 @@ spec = withApp $ do
 
     it "finds a null next even with limit defaulted" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -85,7 +85,7 @@ spec = withApp $ do
 
     it "finds a null next even with page-aligned data" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -95,7 +95,7 @@ spec = withApp $ do
 
     it "finds a null next on the last page" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -106,7 +106,7 @@ spec = withApp $ do
 
     it "finds a null previous on the first page" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 2 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -116,7 +116,7 @@ spec = withApp $ do
 
     it "returns the same response for the same cursor" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -135,7 +135,7 @@ spec = withApp $ do
 
     it "limits are optional" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -145,7 +145,7 @@ spec = withApp $ do
 
     it "parses optional params" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         _ <- insert $ SomeAssignment 1 3 now
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
       request $ do
@@ -157,7 +157,7 @@ spec = withApp $ do
 
     it "can link to first" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -173,7 +173,7 @@ spec = withApp $ do
 
     it "can link to last" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeR
@@ -189,7 +189,7 @@ spec = withApp $ do
 
     it "can traverse via Link" $ do
       now <- liftIO getCurrentTime
-      runNoLoggingT . runDB' $ do
+      runDB $ do
         replicateM_ 6 . insert $ SomeAssignment 1 2 now
       request $ do
         setUrl SomeLinkR
