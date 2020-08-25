@@ -12,6 +12,7 @@ import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import Data.ByteString.Lazy (ByteString)
+import Data.Foldable (traverse_)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Data.Scientific (Scientific)
@@ -26,6 +27,7 @@ import Network.Wai.Test (simpleBody, simpleHeaders)
 import Test.Hspec (Spec, SpecWith, before, beforeAll_, describe, hspec, it)
 import Test.Hspec.Expectations.Lifted (shouldBe, shouldReturn)
 import TestApp
+import Yesod.Core (RedirectUrl, Yesod)
 import Yesod.Test
 
 main :: IO ()
@@ -35,28 +37,21 @@ spec :: Spec
 spec = withApp $ do
   describe "Cursor" $ do
     it "responds with a useful message on invalid limit" $ do
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "-1"
+      getPaginated SomeR [("teacherId", "1"), ("limit", "-1")]
 
       statusIs 400
       bodyContains "must be positive and non-zero"
 
     it "returns no cursor when there are no items" $ do
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
+      getPaginated SomeR [("teacherId", "1")]
+
       mayLink "next" `shouldReturn` Nothing
 
     it "traverses a list with a next Cursor" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 12 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "4"
+      runDB $ insertAssignments 12
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "4")]
+
       assertDataKeys [1, 2, 3, 4]
       get =<< getLink "next"
       assertDataKeys [5, 6, 7, 8]
@@ -64,64 +59,47 @@ spec = withApp $ do
       assertDataKeys [9, 10, 11, 12]
 
     it "finds a null next when no items are left" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 2 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "3"
+      runDB $ insertAssignments 2
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "3")]
+
       assertDataKeys [1, 2]
       mayLink "next" `shouldReturn` Nothing
 
     it "finds a null next even with limit defaulted" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 2 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
+      runDB $ insertAssignments 2
+
+      getPaginated SomeR [("teacherId", "1")]
+
       mayLink "next" `shouldReturn` Nothing
 
     it "finds a null next even with page-aligned data" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 2 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 2
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
       mayLink "next" `shouldReturn` Nothing
 
     it "finds a null next on the last page" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 2 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 2
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
       get =<< getLink "last"
       mayLink "next" `shouldReturn` Nothing
 
     it "finds a null previous on the first page" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 2 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 2
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
       mayLink "previous" `shouldReturn` Nothing
 
     it "returns the same response for the same cursor" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 5 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 5
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
       assertDataKeys [1, 2]
       next <- getLink "next"
       let
@@ -134,12 +112,10 @@ spec = withApp $ do
       response1 `shouldBe` response2
 
     it "limits are optional" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 5 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
+      runDB $ insertAssignments 5
+
+      getPaginated SomeR [("teacherId", "1")]
+
       _next <- getLink "next"
       assertDataKeys [1, 2, 3, 4, 5]
 
@@ -148,21 +124,17 @@ spec = withApp $ do
       runDB $ do
         _ <- insert $ SomeAssignment 1 3 now
         replicateM_ 5 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "courseId" "3"
+
+      getPaginated SomeR [("teacherId", "1"), ("courseId", "3")]
+
       _next <- getLink "next"
       assertDataKeys [1]
 
     it "can link to first" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 6 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 6
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
       assertDataKeys [1, 2]
       get =<< getLink "next"
       assertDataKeys [3, 4]
@@ -172,13 +144,10 @@ spec = withApp $ do
       assertDataKeys [1, 2]
 
     it "can link to last" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 6 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 6
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
       assertDataKeys [1, 2]
       get =<< getLink "last"
       assertDataKeys [5, 6]
@@ -188,13 +157,10 @@ spec = withApp $ do
       assertDataKeys [1, 2]
 
     it "can traverse via Link" $ do
-      now <- liftIO getCurrentTime
-      runDB $ do
-        replicateM_ 6 . insert $ SomeAssignment 1 2 now
-      request $ do
-        setUrl SomeLinkR
-        addGetParam "teacherId" "1"
-        addGetParam "limit" "2"
+      runDB $ insertAssignments 6
+
+      getPaginated SomeLinkR [("teacherId", "1"), ("limit", "2")]
+
       assertKeys [1, 2]
       get =<< getLinkViaHeader "next"
       assertKeys [3, 4]
@@ -223,6 +189,20 @@ runDB = runNoLoggingT . runDB'
 
 deleteAssignments :: MonadIO m => SqlPersistT m ()
 deleteAssignments = deleteWhere ([] :: [Filter SomeAssignment])
+
+insertAssignments :: MonadIO m => Int -> SqlPersistT m ()
+insertAssignments n = do
+  now <- liftIO getCurrentTime
+  replicateM_ n . insert $ SomeAssignment 1 2 now
+
+getPaginated
+  :: (Yesod site, RedirectUrl site url)
+  => url
+  -> [(Text, Text)]
+  -> YesodExample site ()
+getPaginated url params = request $ do
+  setUrl url
+  traverse_ (uncurry addGetParam) params
 
 assertDataKeys :: HasCallStack => [Scientific] -> SIO (YesodExampleData site) ()
 assertDataKeys expectedKeys = do
