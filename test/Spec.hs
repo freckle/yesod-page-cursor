@@ -5,7 +5,7 @@ module Main
   )
 where
 
-import Control.Lens (preview, (^..))
+import Control.Lens ((^..), (^?))
 import Control.Monad (replicateM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.IO.Unlift (MonadUnliftIO)
@@ -23,6 +23,7 @@ import Database.Persist (Filter, deleteWhere, insert)
 import Database.Persist.Sql (SqlPersistT, insertMany_, runMigration)
 import GHC.Stack (HasCallStack)
 import Network.HTTP.Link
+import Network.HTTP.Types.Header (HeaderName)
 import Network.Wai.Test (simpleBody, simpleHeaders)
 import Test.Hspec (Spec, SpecWith, before, beforeAll_, describe, hspec, it)
 import Test.Hspec.Expectations.Lifted (shouldBe, shouldReturn)
@@ -207,21 +208,29 @@ getPaginated url params = request $ do
 assertDataKeys :: HasCallStack => [Scientific] -> YesodExample site ()
 assertDataKeys expectedKeys = do
   statusIs 200
-  keys <- getDataKeys
-  keys `shouldBe` expectedKeys
+  body <- getBody
+  body
+    ^.. key "data"
+    . _Array
+    . traverse
+    . key "key"
+    . _Number
+    `shouldBe` expectedKeys
 
 assertKeys :: HasCallStack => [Scientific] -> YesodExample site ()
 assertKeys expectedKeys = do
   statusIs 200
-  keys <- getKeys
-  keys `shouldBe` expectedKeys
+  body <- getBody
+  body ^.. _Array . traverse . key "key" . _Number `shouldBe` expectedKeys
 
 getLink :: HasCallStack => Text -> YesodExample site Text
 getLink rel =
   fromMaybe (error $ "no " <> unpack rel <> " in JSON response") <$> mayLink rel
 
 mayLink :: Text -> YesodExample site (Maybe Text)
-mayLink rel = withResponse $ pure . preview (key rel . _String) . simpleBody
+mayLink rel = do
+  body <- getBody
+  pure $ body ^? key rel . _String
 
 getLinkViaHeader :: HasCallStack => Text -> YesodExample site Text
 getLinkViaHeader rel =
@@ -229,25 +238,17 @@ getLinkViaHeader rel =
     <$> mayLinkViaHeader rel
 
 mayLinkViaHeader :: Text -> YesodExample site (Maybe Text)
-mayLinkViaHeader rel = withResponse $ \resp -> pure $ do
-  header <- lookup "Link" $ simpleHeaders resp
-  parsed <- either (const Nothing) Just $ parseLinkHeader' $ decodeUtf8 header
-  link <- find (((Rel, rel) `elem`) . linkParams) parsed
-  pure $ pack $ show $ href link
+mayLinkViaHeader rel = do
+  mHeader <- getHeader "Link"
+
+  pure $ do
+    header <- mHeader
+    parsed <- either (const Nothing) Just $ parseLinkHeader' header
+    link <- find (((Rel, rel) `elem`) . linkParams) parsed
+    pure $ pack $ show $ href link
 
 getBody :: YesodExample site ByteString
 getBody = withResponse $ pure . simpleBody
 
-getKeys :: YesodExample site [Scientific]
-getKeys =
-  withResponse
-    $ pure
-    . (^.. (_Array . traverse . key "key" . _Number))
-    . simpleBody
-
-getDataKeys :: YesodExample site [Scientific]
-getDataKeys =
-  withResponse
-    $ pure
-    . (^.. (key "data" . _Array . traverse . key "key" . _Number))
-    . simpleBody
+getHeader :: HeaderName -> YesodExample site (Maybe Text)
+getHeader h = withResponse $ pure . fmap decodeUtf8 . lookup h . simpleHeaders
