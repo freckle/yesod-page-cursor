@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
@@ -11,6 +12,8 @@ module Yesod.Page
   , Page(..)
   , Cursor(..)
   , Position(..)
+  , Limit
+  , unLimit
   )
 where
 
@@ -18,7 +21,8 @@ import Control.Monad (guard)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
+import Text.Read (readMaybe)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Network.HTTP.Link (writeLinkHeader)
 import Yesod.Core
@@ -70,8 +74,8 @@ withPage makePosition fetchItems = do
   cursor <- parseCursorParams
 
   -- We have to fetch page-size+1 items to know if there is a next page or not
-  let realLimit = cursorLimit cursor
-  items <- fetchItems cursor { cursorLimit = realLimit + 1 }
+  let (Limit realLimit) = cursorLimit cursor
+  items <- fetchItems cursor { cursorLimit = Limit $ realLimit + 1 }
 
   pure Page
     { pageData = take realLimit items
@@ -108,10 +112,20 @@ instance ToJSON a => ToJSON (Page a) where
 data Cursor position = Cursor
   { cursorRoute :: RenderedRoute -- ^ The route of the parsed request
   , cursorPosition :: Position position -- ^ The last position seen by the endpoint consumer
-  , cursorLimit :: Int -- ^ The page size requested by the endpoint consumer
+  , cursorLimit :: Limit -- ^ The page size requested by the endpoint consumer
   }
 
 data Position position = First | Next position
+
+newtype Limit = Limit { unLimit :: Int }
+
+readLimit :: Text -> Either String Limit
+readLimit t = case readMaybe @Int $ unpack t of
+    Nothing -> limitMustBe "an integer"
+    Just limit | limit <= 0 -> limitMustBe "positive and non-zero"
+    Just limit -> Right $ Limit limit
+  where
+    limitMustBe msg = Left $ "Limit must be " <> msg <> ": " <> show t
 
 cursorRouteAtPosition
   :: ToJSON position => Cursor position -> Position position -> RenderedRoute
@@ -132,17 +146,17 @@ parseCursorParams = do
     Just (Left err) -> invalidArgs [pack err]
     Just (Right p) -> pure $ Next p
 
-  -- TODO: limit is a simple number always; do we need FromJSON?
-  mLimit <- (decodeText =<<) <$> lookupGetParam "limit"
-  renderedRoute <- getRenderedRoute
+  limit <-
+    either (\e -> invalidArgs [pack e]) pure
+        . readLimit
+        . fromMaybe "100"
+        =<< lookupGetParam "limit"
 
-  pure $ Cursor renderedRoute position $ fromMaybe 100 mLimit
+  renderedRoute <- getRenderedRoute
+  pure $ Cursor renderedRoute position limit
 
 eitherDecodeText :: FromJSON a => Text -> Either String a
 eitherDecodeText = eitherDecode . BSL.fromStrict . encodeUtf8
-
-decodeText :: FromJSON a => Text -> Maybe a
-decodeText = decode . BSL.fromStrict . encodeUtf8
 
 encodeText :: ToJSON a => a -> Text
 encodeText = decodeUtf8 . BSL.toStrict . encode

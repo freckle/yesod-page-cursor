@@ -123,7 +123,7 @@ makePaginationRoute withPage' = do
       , whereClause cursorPosition
       ]
     )
-    [LimitTo cursorLimit, Asc persistIdField]
+    [LimitTo $ unLimit cursorLimit, Asc persistIdField]
   returnJson $ keyValueEntityToJSON <$> items
  where
   whereClause = \case
@@ -134,6 +134,15 @@ main :: IO ()
 main = do
   runNoLoggingT . runDB' $ runMigration migrateAll
   hspec . yesodSpec Simple $ ydescribe "Cursor" $ do
+    yit "responds with a useful message on invalid limit" $ do
+      request $ do
+        setUrl SomeR
+        addGetParam "teacherId" "1"
+        addGetParam "limit" "-1"
+
+      statusIs 400
+      bodyContains "must be positive and non-zero"
+
     yit "returns no cursor when there are no items" $ do
       runNoLoggingT . runDB' $ deleteAssignments
       request $ do
