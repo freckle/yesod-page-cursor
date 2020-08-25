@@ -49,6 +49,7 @@ tests:
     - persistent-template
     - scientific
     - time
+    - unliftio-core
     - wai-extra
     - yesod
     - yesod-page-cursor
