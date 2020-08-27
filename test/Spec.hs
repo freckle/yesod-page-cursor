@@ -25,7 +25,7 @@ import GHC.Stack (HasCallStack)
 import Network.HTTP.Link
 import Network.HTTP.Types.Header (HeaderName)
 import Network.Wai.Test (simpleBody, simpleHeaders)
-import Test.Hspec (Spec, SpecWith, before, beforeAll_, describe, hspec, it)
+import Test.Hspec (Spec, SpecWith, beforeAll, before_, describe, hspec, it)
 import Test.Hspec.Expectations.Lifted (shouldBe, shouldReturn)
 import TestApp
 import Yesod.Core (RedirectUrl, Yesod)
@@ -177,7 +177,7 @@ spec = withApp $ do
       assertKeys [1, 2]
 
 withApp :: SpecWith (TestApp Simple) -> Spec
-withApp = before (testApp Simple id <$ wipeDB) . beforeAll_ setupDB
+withApp = beforeAll (testApp Simple id <$ setupDB) . before_ wipeDB
 
 setupDB :: IO ()
 setupDB = liftIO $ runDB $ runMigration migrateAll
