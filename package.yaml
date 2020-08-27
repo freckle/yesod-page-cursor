@@ -1,10 +1,10 @@
 name: yesod-page-cursor
 version: 0.0.0.0
-github: "eborden/yesod-page-cursor"
-license: BSD3
+github: "freckle/yesod-page-cursor"
+license: MIT
 author: "Evan Rutledge Borden"
 maintainer: "evan@evan-borden.com"
-copyright: "2019 Evan Rutledge Borden"
+copyright: "2020 Renaissance Learning Inc"
 
 extra-source-files:
   - README.md
