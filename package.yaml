@@ -7,50 +7,50 @@ maintainer: "evan@evan-borden.com"
 copyright: "2019 Evan Rutledge Borden"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
+  - ChangeLog.md
 
 description: Cursor based pagination for Yesod
 
 dependencies:
-- aeson
-- base >= 4.7 && < 5
-- bytestring
-- text
-- unliftio
-- yesod-core
+  - aeson
+  - base >= 4.7 && < 5
+  - bytestring
+  - text
+  - unliftio
+  - yesod-core
 
 library:
   source-dirs: src
   dependencies:
-  - containers
-  - http-link-header
-  - network-uri
+    - containers
+    - http-link-header
+    - network-uri
 
 tests:
   yesod-page-cursor-test:
     main: Spec.hs
     source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - hspec
-    - hspec-expectations-lifted
-    - http-link-header
-    - http-types
-    - lens
-    - lens-aeson
-    - monad-logger
-    - mtl
-    - persistent
-    - persistent-sqlite
-    - persistent-template
-    - scientific
-    - time
-    - unliftio-core
-    - wai-extra
-    - yesod
-    - yesod-page-cursor
-    - yesod-test
+      - hspec
+      - hspec-expectations-lifted
+      - http-link-header
+      - http-types
+      - lens
+      - lens-aeson
+      - monad-logger
+      - mtl
+      - persistent
+      - persistent-sqlite
+      - persistent-template
+      - scientific
+      - time
+      - unliftio-core
+      - wai-extra
+      - yesod
+      - yesod-page-cursor
+      - yesod-test
