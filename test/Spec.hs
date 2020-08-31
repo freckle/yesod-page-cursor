@@ -59,6 +59,28 @@ spec = withApp $ do
       get =<< getLink "next"
       assertDataKeys [9, 10, 11, 12]
 
+    it "traverses a list to next and previous" $ do
+      runDB $ insertAssignments 12
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "4")]
+
+      assertDataKeys [1, 2, 3, 4]
+      get =<< getLink "next"
+      assertDataKeys [5, 6, 7, 8]
+      get =<< getLink "previous"
+      assertDataKeys [1, 2, 3, 4]
+
+    it "correctly handles incomplete pages" $ do
+      runDB $ insertAssignments 3
+
+      getPaginated SomeR [("teacherId", "1"), ("limit", "2")]
+
+      assertDataKeys [1, 2]
+      get =<< getLink "next"
+      assertDataKeys [3]
+      get =<< getLink "previous"
+      assertDataKeys [1, 2]
+
     it "finds a null next when no items are left" $ do
       runDB $ insertAssignments 2
 
