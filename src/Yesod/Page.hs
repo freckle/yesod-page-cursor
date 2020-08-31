@@ -79,24 +79,40 @@ withPage makePosition fetchItems = do
   -- We have to fetch page-size+1 items to know if there is a next page or not
   let (Limit realLimit) = cursorLimit cursor
   items <- fetchItems cursor { cursorLimit = Limit $ realLimit + 1 }
-  let page = case cursorPosition cursor of
-        First -> take realLimit items
-        Next{} -> take realLimit items
-        Previous{} -> takeEnd realLimit items
-        Last -> takeEnd realLimit items
+
+  let
+    page = case cursorPosition cursor of
+      First -> take realLimit items
+      Next{} -> take realLimit items
+      Previous{} -> takeEnd realLimit items
+      Last -> takeEnd realLimit items
+
+    hasExtraItem = length items > realLimit
+
+    hasNextLink = case cursorPosition cursor of
+      First -> hasExtraItem
+      Next{} -> hasExtraItem
+      Previous{} -> True
+      Last -> False
+
+    hasPreviousLink = case cursorPosition cursor of
+      First -> False
+      Next{} -> True
+      Previous{} -> hasExtraItem
+      Last -> hasExtraItem
 
   pure Page
     { pageData = page
     , pageFirst = cursorRouteAtPosition cursor First
     , pageNext = do
-      guard $ length items > realLimit
+      guard hasNextLink
       item <- lastMay page
       pure
         $ cursorRouteAtPosition cursor
         $ Next
         $ makePosition item
     , pagePrevious = do
-      guard $ length items > realLimit
+      guard hasPreviousLink
       item <- headMay page
       pure
         $ cursorRouteAtPosition cursor
