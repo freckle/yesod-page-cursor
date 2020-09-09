@@ -97,7 +97,10 @@ getSomeLinkR :: Handler Value
 getSomeLinkR = makePaginationRoute withPageLink
 
 type Pagination m f a
-  = (Entity a -> Key a) -> (Cursor (Key a) -> m [Entity a]) -> m (f (Entity a))
+  = Limit
+  -> (Entity a -> Key a)
+  -> (Cursor (Key a) -> m [Entity a])
+  -> m (f (Entity a))
 
 makePaginationRoute
   :: (Functor f, ToJSON (f Value))
@@ -107,7 +110,7 @@ makePaginationRoute withPage' = do
   teacherId <- requireParam "teacherId"
   mCourseId <- optionalParam "courseId"
 
-  items <- withPage' entityKey $ \Cursor {..} ->
+  items <- withPage' 100 entityKey $ \Cursor {..} ->
     runDB $ sort cursorPosition <$> selectList
       (catMaybes
         [ Just $ SomeAssignmentTeacherId ==. teacherId

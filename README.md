@@ -10,7 +10,7 @@ getSomeR = do
   let
     parseParams =
       (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
-  page <- withPage entityPage parseParams $ \Cursor {..} -> do
+  page <- withPage 100 entityPage parseParams $ \Cursor {..} -> do
     let (teacherId, mCourseId) = cursorParams
     fmap (sort cursorPosition) . runDB $ selectList
       (catMaybes
@@ -51,7 +51,7 @@ createdAtPage = PageConfig
 getSortedSomeR :: Handler Value
 getSortedSomeR = do
   let parseParams = pure ()
-  page <- withPage createdAtPage parseParams $ \Cursor {..} -> do
+  page <- withPage 100 createdAtPage parseParams $ \Cursor {..} -> do
     fmap (sort cursorPosition) . runDB $ selectList
       (whereClause cursorPosition)
       [ LimitTo $ fromMaybe 100 cursorLimit
