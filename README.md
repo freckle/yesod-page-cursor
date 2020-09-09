@@ -39,7 +39,8 @@ getSomeR = do
     Last -> reverse
 ```
 
-`cursorLastPosition` is configurable. A page sorted by `created_at` may look like:
+`cursorLastPosition` is configurable. A page sorted by `created_at` may look
+like:
 
 ```hs
 createdAtPage = PageConfig
@@ -84,7 +85,8 @@ getSortedSomeR = do
 
 ## Usage
 
-Paginated requests return a single page and a link with a cursor token to retrieve the next page.
+Paginated requests return a single page and a link with a cursor token to
+retrieve the next page.
 
 ```sh
 $ curl 'some-rest.com/endpoint?limit=3'
