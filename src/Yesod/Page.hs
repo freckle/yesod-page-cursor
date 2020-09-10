@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
@@ -21,7 +22,7 @@ import Control.Monad (guard)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable (asum)
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes)
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Network.HTTP.Link (writeLinkHeader)
@@ -43,11 +44,21 @@ withPageLink
      , FromJSON position
      , RenderRoute (HandlerSite m)
      )
-  => (a -> position)
+  => Int
+  -- ^ Default limit if not specified in the @'Cursor'@
+  --
+  -- Must be a positive natural number.
+  --
+  -> (a -> position)
+  -- ^ How to get an item's position
+  --
+  -- For example, this would be @'entityKey'@ for paginated @'Entity'@ values.
+  --
   -> (Cursor position -> m [a])
+  -- ^ How to fetch one page of data at the given @'Cursor'@
   -> m [a]
-withPageLink makePosition fetchItems = do
-  page <- withPage makePosition fetchItems
+withPageLink defaultLimit makePosition fetchItems = do
+  page <- withPage defaultLimit makePosition fetchItems
 
   let
     link = writeLinkHeader $ catMaybes
@@ -65,7 +76,12 @@ withPage
      , FromJSON position
      , RenderRoute (HandlerSite m)
      )
-  => (a -> position)
+  => Int
+  -- ^ Default limit if not specified in the @'Cursor'@
+  --
+  -- Must be a positive natural number.
+  --
+  -> (a -> position)
   -- ^ How to get an item's position
   --
   -- For example, this would be @'entityKey'@ for paginated @'Entity'@ values.
@@ -73,8 +89,8 @@ withPage
   -> (Cursor position -> m [a])
   -- ^ How to fetch one page of data at the given @'Cursor'@
   -> m (Page a)
-withPage makePosition fetchItems = do
-  cursor <- parseCursorParams
+withPage defaultLimit makePosition fetchItems = do
+  cursor <- parseCursorParams defaultLimit
 
   -- We have to fetch page-size+1 items to know if there is a next page or not
   let (Limit realLimit) = cursorLimit cursor
@@ -107,17 +123,11 @@ withPage makePosition fetchItems = do
     , pageNext = do
       guard hasNextLink
       item <- lastMay page
-      pure
-        $ cursorRouteAtPosition cursor
-        $ Next
-        $ makePosition item
+      pure $ cursorRouteAtPosition cursor $ Next $ makePosition item
     , pagePrevious = do
       guard hasPreviousLink
       item <- headMay page
-      pure
-        $ cursorRouteAtPosition cursor
-        $ Previous
-        $ makePosition item
+      pure $ cursorRouteAtPosition cursor $ Previous $ makePosition item
     , pageLast = cursorRouteAtPosition cursor Last
     }
 
@@ -159,7 +169,7 @@ data Position position
 instance ToJSON position => ToJSON (Position position) where
   toJSON = \case
     First -> String "first"
-    Next p -> object ["next" .= p ]
+    Next p -> object ["next" .= p]
     Previous p -> object ["previous" .= p]
     Last -> String "last"
 
@@ -167,16 +177,13 @@ instance FromJSON position => FromJSON (Position position) where
   parseJSON = \case
     Null -> pure First
     String t -> case t of
-        "first" -> pure First
-        "last" -> pure Last
-        _ -> invalidPosition
+      "first" -> pure First
+      "last" -> pure Last
+      _ -> invalidPosition
     Object o -> do
-        mNext <- o .:? "next"
-        mPrevious <- o .:? "previous"
-        maybe invalidPosition pure $ asum
-         [ Next <$> mNext
-         , Previous <$> mPrevious
-         ]
+      mNext <- o .:? "next"
+      mPrevious <- o .:? "previous"
+      maybe invalidPosition pure $ asum [Next <$> mNext, Previous <$> mPrevious]
 
     _ -> invalidPosition
    where
@@ -187,23 +194,28 @@ instance FromJSON position => FromJSON (Position position) where
 
 newtype Limit = Limit { unLimit :: Int }
 
+validateLimit :: Int -> Either String Limit
+validateLimit limit
+  | limit <= 0 = badLimit limit
+  | otherwise = Right $ Limit limit
+
 readLimit :: Text -> Either String Limit
-readLimit t = case readMaybe @Int $ unpack t of
-    Nothing -> limitMustBe "an integer"
-    Just limit | limit <= 0 -> limitMustBe "positive and non-zero"
-    Just limit -> Right $ Limit limit
-  where
-    limitMustBe msg = Left $ "Limit must be " <> msg <> ": " <> show t
+readLimit t = maybe (badLimit t) validateLimit $ readMaybe @Int $ unpack t
+
+badLimit :: Show a => a -> Either String x
+badLimit a = Left $ "Limit must be a positive natural number: " <> show a
 
 cursorRouteAtPosition
   :: ToJSON position => Cursor position -> Position position -> RenderedRoute
 cursorRouteAtPosition cursor position =
-  updateQueryParameter "position" (Just $ encodeText position) $ cursorRoute cursor
+  updateQueryParameter "position" (Just $ encodeText position)
+    $ cursorRoute cursor
 
 parseCursorParams
   :: (MonadHandler m, FromJSON position, RenderRoute (HandlerSite m))
-  => m (Cursor position)
-parseCursorParams = do
+  => Int
+  -> m (Cursor position)
+parseCursorParams defaultLimit = do
   mePosition <- fmap eitherDecodeText <$> lookupGetParam "position"
   position <- case mePosition of
     Nothing -> pure First
@@ -211,10 +223,9 @@ parseCursorParams = do
     Just (Right p) -> pure p
 
   limit <-
-    either (\e -> invalidArgs [pack e]) pure
-        . readLimit
-        . fromMaybe "100"
-        =<< lookupGetParam "limit"
+    either (invalidArgs . pure . pack) pure
+    . maybe (validateLimit defaultLimit) readLimit
+    =<< lookupGetParam "limit"
 
   renderedRoute <- getRenderedRoute
   pure $ Cursor renderedRoute position limit
@@ -227,14 +238,15 @@ encodeText = decodeUtf8 . BSL.toStrict . encode
 
 headMay :: [a] -> Maybe a
 headMay [] = Nothing
-headMay (x:_) = Just x
+headMay (x : _) = Just x
 
 lastMay :: [a] -> Maybe a
 lastMay [] = Nothing
 lastMay [x] = Just x
-lastMay (_:xs) = lastMay xs
+lastMay (_ : xs) = lastMay xs
 
 takeEnd :: Int -> [a] -> [a]
 takeEnd i xs = f xs (drop i xs)
-    where f (_:xs') (_:ys) = f xs' ys
-          f xs' _ = xs'
+ where
+  f (_ : xs') (_ : ys) = f xs' ys
+  f xs' _ = xs'
