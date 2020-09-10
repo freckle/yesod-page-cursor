@@ -41,7 +41,7 @@ spec = withApp $ do
       getPaginated SomeR [("teacherId", "1"), ("limit", "-1")]
 
       statusIs 400
-      bodyContains "must be positive and non-zero"
+      bodyContains "must be a positive natural number"
 
     it "returns no cursor when there are no items" $ do
       getPaginated SomeR [("teacherId", "1")]

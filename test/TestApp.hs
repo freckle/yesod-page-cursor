@@ -97,7 +97,7 @@ getSomeLinkR :: Handler Value
 getSomeLinkR = makePaginationRoute withPageLink
 
 type Pagination m f a
-  = Limit
+  = Int
   -> (Entity a -> Key a)
   -> (Cursor (Key a) -> m [Entity a])
   -> m (f (Entity a))

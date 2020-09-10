@@ -2,7 +2,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -45,8 +44,11 @@ withPageLink
      , FromJSON position
      , RenderRoute (HandlerSite m)
      )
-  => Limit
+  => Int
   -- ^ Default limit if not specified in the @'Cursor'@
+  --
+  -- Must be a positive natural number.
+  --
   -> (a -> position)
   -- ^ How to get an item's position
   --
@@ -74,8 +76,11 @@ withPage
      , FromJSON position
      , RenderRoute (HandlerSite m)
      )
-  => Limit
+  => Int
   -- ^ Default limit if not specified in the @'Cursor'@
+  --
+  -- Must be a positive natural number.
+  --
   -> (a -> position)
   -- ^ How to get an item's position
   --
@@ -188,14 +193,17 @@ instance FromJSON position => FromJSON (Position position) where
         <> " or an Object with a \"next\" or \"previous\" key"
 
 newtype Limit = Limit { unLimit :: Int }
-  deriving newtype (Eq, Ord, Show, Num)
+
+validateLimit :: Int -> Either String Limit
+validateLimit limit
+  | limit <= 0 = badLimit limit
+  | otherwise = Right $ Limit limit
 
 readLimit :: Text -> Either String Limit
-readLimit t = case readMaybe @Int $ unpack t of
-  Nothing -> limitMustBe "an integer"
-  Just limit | limit <= 0 -> limitMustBe "positive and non-zero"
-  Just limit -> Right $ Limit limit
-  where limitMustBe msg = Left $ "Limit must be " <> msg <> ": " <> show t
+readLimit t = maybe (badLimit t) validateLimit $ readMaybe @Int $ unpack t
+
+badLimit :: Show a => a -> Either String x
+badLimit a = Left $ "Limit must be a positive natural number: " <> show a
 
 cursorRouteAtPosition
   :: ToJSON position => Cursor position -> Position position -> RenderedRoute
@@ -205,7 +213,7 @@ cursorRouteAtPosition cursor position =
 
 parseCursorParams
   :: (MonadHandler m, FromJSON position, RenderRoute (HandlerSite m))
-  => Limit
+  => Int
   -> m (Cursor position)
 parseCursorParams defaultLimit = do
   mePosition <- fmap eitherDecodeText <$> lookupGetParam "position"
@@ -216,7 +224,7 @@ parseCursorParams defaultLimit = do
 
   limit <-
     either (invalidArgs . pure . pack) pure
-    . maybe (Right defaultLimit) readLimit
+    . maybe (validateLimit defaultLimit) readLimit
     =<< lookupGetParam "limit"
 
   renderedRoute <- getRenderedRoute
