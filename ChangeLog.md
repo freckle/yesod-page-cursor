@@ -12,7 +12,6 @@ None.
 
 - Add `defaultLimit :: Int` argument to `withPage` and `withPageLink`
 
-
 ## [v1.0.0.1](https://github.com/freckle/yesod-page-cursor/compare/v1.0.0.0...v1.0.0.1)
 
 - Fix missing `previous` link in all but last page
