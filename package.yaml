@@ -13,10 +13,10 @@ extra-source-files:
 description: Cursor based pagination for Yesod
 
 dependencies:
-  - aeson
+  - aeson < 1.6
   - base >= 4.7 && < 5
   - bytestring
-  - text
+  - text >= 1.2.3.2
   - unliftio
   - yesod-core
 
@@ -40,7 +40,7 @@ tests:
       - hspec-expectations-lifted
       - http-link-header
       - http-types
-      - lens
+      - lens < 4.20
       - lens-aeson
       - monad-logger
       - mtl
@@ -49,8 +49,8 @@ tests:
       - persistent-template
       - scientific
       - time
-      - unliftio-core
-      - wai-extra
+      - unliftio-core < 0.3
+      - wai-extra < 3.2
       - yesod
       - yesod-page-cursor
       - yesod-test
