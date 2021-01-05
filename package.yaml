@@ -1,5 +1,5 @@
 name: yesod-page-cursor
-version: 2.0.0.1
+version: 2.0.0.2
 github: "freckle/yesod-page-cursor"
 license: MIT
 author: Freckle Engineering
@@ -44,9 +44,9 @@ tests:
       - lens-aeson
       - monad-logger
       - mtl
-      - persistent
-      - persistent-sqlite
-      - persistent-template
+      - persistent < 2.12
+      - persistent-sqlite < 2.12
+      - persistent-template < 2.10
       - scientific
       - time
       - unliftio-core < 0.3

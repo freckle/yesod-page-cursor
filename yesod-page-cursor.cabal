@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ed1d71a1dec91cc4071bac26beae857f1e47d70335d1f74fc4e37f25d5dfe1ce
+-- hash: d50e7aa252b103041aedb04edd12a5560d4c151fa4fb251b85bbf0ad17b672c0
 
 name:           yesod-page-cursor
-version:        2.0.0.0
+version:        2.0.0.1
 description:    Cursor based pagination for Yesod
 homepage:       https://github.com/freckle/yesod-page-cursor#readme
 bug-reports:    https://github.com/freckle/yesod-page-cursor/issues
@@ -66,9 +66,9 @@ test-suite yesod-page-cursor-test
     , lens-aeson
     , monad-logger
     , mtl
-    , persistent
-    , persistent-sqlite
-    , persistent-template
+    , persistent <2.12
+    , persistent-sqlite <2.12
+    , persistent-template <2.10
     , scientific
     , text >=1.2.3.2
     , time
