@@ -1,5 +1,5 @@
 name: yesod-page-cursor
-version: 2.0.0.2
+version: 2.0.0.3
 github: "freckle/yesod-page-cursor"
 license: MIT
 author: Freckle Engineering
@@ -15,7 +15,8 @@ description: Cursor based pagination for Yesod
 dependencies:
   - aeson < 1.6
   - base >= 4.7 && < 5
-  - bytestring
+  - bytestring < 0.12
+  - http-link-header < 1.3
   - text >= 1.2.3.2
   - unliftio
   - yesod-core
@@ -24,8 +25,7 @@ library:
   source-dirs: src
   dependencies:
     - containers
-    - http-link-header
-    - network-uri
+    - network-uri < 2.8
 
 tests:
   yesod-page-cursor-test:
@@ -38,7 +38,6 @@ tests:
     dependencies:
       - hspec
       - hspec-expectations-lifted
-      - http-link-header
       - http-types
       - lens < 4.20
       - lens-aeson
@@ -48,7 +47,7 @@ tests:
       - persistent-sqlite < 2.12
       - persistent-template < 2.10
       - scientific
-      - time
+      - time < 1.12
       - unliftio-core < 0.3
       - wai-extra < 3.2
       - yesod

@@ -2,7 +2,10 @@
 
 ## Unreleased changes
 
-None.
+## [v2.0.0.3](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.3...v2.0.0.3)
+
+- Test with LTS 17.1 / GHC 8.10
+- Relax upper bounds
 
 ## [v2.0.0.2](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.1...v2.0.0.2)
 
