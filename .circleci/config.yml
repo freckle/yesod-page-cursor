@@ -1,19 +1,10 @@
 version: 2.1
 
 orbs:
-  stack-build: pbrisbin/stack-build@3.0.1
+  stack-build: pbrisbin/stack-build@4.0.0
 
 workflows:
   commit:
     jobs:
       - stack-build/build-test-lint:
           name: build
-
-          # Minor workaround for stack-build Orb expecting weeder-1 and invoking
-          # in a way that's incorrect with weeder-2. We'll run it ourselves for
-          # now.
-          weeder: false
-          after-dependencies:
-            - run: stack install --copy-compiler-tool weeder
-          after-test:
-            - run: stack exec weeder
