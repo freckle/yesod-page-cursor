@@ -2,7 +2,11 @@
 
 ## Unreleased changes
 
-## [v2.0.0.3](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.3...v2.0.0.3)
+## [v2.0.0.4](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.3...v2.0.0.4)
+
+- Relax lens upper bound
+
+## [v2.0.0.3](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.2...v2.0.0.3)
 
 - Test with LTS 17.1 / GHC 8.10
 - Relax upper bounds
