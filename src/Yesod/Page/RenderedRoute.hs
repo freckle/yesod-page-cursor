@@ -68,7 +68,7 @@ getRenderedRoute = do
   let (path, _query) = renderRoute route
   query <- reqGetParams <$> getRequest
 
-  pure $ RenderedRoute {renderedRoutePath = path, renderedRouteQuery = query}
+  pure $ RenderedRoute { renderedRoutePath = path, renderedRouteQuery = query }
 
 -- | Update a single query parameter and preserve the rest
 --
