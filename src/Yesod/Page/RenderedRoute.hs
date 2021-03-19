@@ -16,7 +16,7 @@ import Data.Aeson
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Text (Text, intercalate, pack, unpack)
-import Network.HTTP.Link
+import Network.HTTP.Link.Compat
 import Network.URI (URI(..), escapeURIString, isUnescapedInURIComponent)
 import UnliftIO (throwString)
 import Yesod.Core
@@ -40,7 +40,7 @@ instance ToJSON RenderedRoute where
 
 -- | Convert a @'RenderedRoute'@ into a @'Link'@ with the given @'Rel'@
 renderedRouteLink :: Text -> RenderedRoute -> Link
-renderedRouteLink rel = flip Link [(Rel, rel)] . renderedRouteURI
+renderedRouteLink rel = flip linkURI [(Rel, rel)] . renderedRouteURI
 
 -- | Convert a @'RenderedRoute'@ into a (relative) @'URI'@
 renderedRouteURI :: RenderedRoute -> URI

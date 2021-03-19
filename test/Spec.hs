@@ -22,7 +22,7 @@ import Data.Time (getCurrentTime)
 import Database.Persist (Filter, deleteWhere, insert)
 import Database.Persist.Sql (SqlPersistT, insertMany_, runMigration)
 import GHC.Stack (HasCallStack)
-import Network.HTTP.Link
+import Network.HTTP.Link.Compat
 import Network.HTTP.Types.Header (HeaderName)
 import Network.Wai.Test (simpleBody, simpleHeaders)
 import Test.Hspec (Spec, SpecWith, beforeAll, before_, describe, hspec, it)
@@ -265,7 +265,7 @@ mayLinkViaHeader rel = do
 
   pure $ do
     header <- mHeader
-    parsed <- either (const Nothing) Just $ parseLinkHeader' header
+    parsed <- either (const Nothing) Just $ parseLinkURI header
     link <- find (((Rel, rel) `elem`) . linkParams) parsed
     pure $ pack $ show $ href link
 
