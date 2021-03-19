@@ -2,6 +2,11 @@
 
 ## Unreleased changes
 
+## [v2.0.0.5](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.4...v2.0.0.5)
+
+- Relax persistent upper bound
+- Fix errors with http-link-header 1.2
+
 ## [v2.0.0.4](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.3...v2.0.0.4)
 
 - Relax lens upper bound

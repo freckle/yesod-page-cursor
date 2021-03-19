@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 366ddb809d87f5dfffdb0c9f863122a974ecfaa834bb2f9d9862eb85c9581351
+-- hash: ea07666773ba3531390b4b1b46e57e7fe19960f954522a883562d85cb7db1a55
 
 name:           yesod-page-cursor
-version:        2.0.0.4
+version:        2.0.0.5
 description:    Cursor based pagination for Yesod
 homepage:       https://github.com/freckle/yesod-page-cursor#readme
 bug-reports:    https://github.com/freckle/yesod-page-cursor/issues
