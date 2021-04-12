@@ -2,6 +2,10 @@
 
 ## Unreleased changes
 
+## [v2.0.0.6](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.5...v2.0.0.6)
+
+- Relax dependency bounds
+
 ## [v2.0.0.5](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.4...v2.0.0.5)
 
 - Relax persistent upper bound
