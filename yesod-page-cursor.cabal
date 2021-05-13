@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 690c28d3b68ab2d059fdde729f909f7df54193bd9d5b125917de12069a8f0d03
+-- hash: b53dc46cece526e9109d0730ef1ccb3bdd98c2b39448b0621cbfabe4fb162c91
 
 name:           yesod-page-cursor
-version:        2.0.0.6
+version:        2.0.0.7
 description:    Cursor based pagination for Yesod
 homepage:       https://github.com/freckle/yesod-page-cursor#readme
 bug-reports:    https://github.com/freckle/yesod-page-cursor/issues
@@ -35,12 +35,12 @@ library
   hs-source-dirs:
       src
   build-depends:
-      aeson <1.6
+      aeson
     , base >=4.7 && <5
-    , bytestring <0.12
+    , bytestring
     , containers
-    , http-link-header <1.3
-    , network-uri <2.8
+    , http-link-header
+    , network-uri
     , text >=1.2.3.2
     , unliftio
     , yesod-core
@@ -56,26 +56,26 @@ test-suite yesod-page-cursor-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson <1.6
+      aeson
     , base >=4.7 && <5
-    , bytestring <0.12
+    , bytestring
     , hspec
     , hspec-expectations-lifted
-    , http-link-header <1.3
+    , http-link-header
     , http-types
-    , lens <5.1
+    , lens
     , lens-aeson
     , monad-logger
     , mtl
-    , persistent <2.13
-    , persistent-sqlite <2.13
-    , persistent-template <2.13
+    , persistent
+    , persistent-sqlite
+    , persistent-template
     , scientific
     , text >=1.2.3.2
-    , time <1.12
+    , time
     , unliftio
-    , unliftio-core <0.3
-    , wai-extra <3.2
+    , unliftio-core
+    , wai-extra
     , yesod
     , yesod-core
     , yesod-page-cursor
