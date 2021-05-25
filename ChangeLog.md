@@ -2,6 +2,10 @@
 
 ## Unreleased changes
 
+## [v2.0.0.8](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.7...v2.0.0.8)
+
+- Fix test suite compilation error
+
 ## [v2.0.0.7](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.6...v2.0.0.7)
 
 - Remove dependencies upper bounds
