@@ -16,7 +16,7 @@
 
 module TestApp where
 
-import Control.Monad.Logger (MonadLogger)
+import Control.Monad.Logger (MonadLogger, MonadLoggerIO)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Data.Aeson (ToJSON, Value, defaultOptions, genericToJSON, toJSON)
 import Data.List (sortOn)
@@ -71,7 +71,10 @@ data Simple = Simple
 
 instance Yesod Simple
 
-runDB' :: (MonadUnliftIO m, MonadLogger m) => ReaderT SqlBackend m a -> m a
+runDB'
+  :: (MonadUnliftIO m, MonadLogger m, MonadLoggerIO m)
+  => ReaderT SqlBackend m a
+  -> m a
 runDB' f = withSqliteConn ":test:" $ runReaderT f
 
 instance YesodPersist Simple where
