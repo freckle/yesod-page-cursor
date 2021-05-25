@@ -23,3 +23,5 @@ jobs:
       - uses: freckle/stack-action@v2
         with:
           stack-arguments: --resolver nightly
+          hlint: false
+          weeder: false
