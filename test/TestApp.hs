@@ -69,6 +69,11 @@ instance ToJSON SomeAssignment where
 
 data Simple = Simple
 
+mkYesod "Simple" [parseRoutes|
+/some-route SomeR GET
+/some-route-link SomeLinkR GET
+|]
+
 instance Yesod Simple
 
 runDB'
@@ -80,11 +85,6 @@ runDB' f = withSqliteConn ":test:" $ runReaderT f
 instance YesodPersist Simple where
   type YesodPersistBackend Simple = SqlBackend
   runDB = runDB'
-
-mkYesod "Simple" [parseRoutes|
-/some-route SomeR GET
-/some-route-link SomeLinkR GET
-|]
 
 optionalParam :: Read a => MonadHandler m => Text -> m (Maybe a)
 optionalParam name = fmap (read . unpack) <$> lookupGetParam name
