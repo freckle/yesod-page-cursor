@@ -1,8 +1,12 @@
 # Changelog for yesod-cursor
 
-## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.8...main)
+## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.9...main)
 
 - None
+
+## [v2.0.0.9](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.8...v2.0.0.9)
+
+- Re-order declarations in TestApp, to build on GHC 9
 
 ## [v2.0.0.8](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.7...v2.0.0.8)
 
