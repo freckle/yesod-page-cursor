@@ -1,6 +1,8 @@
 # Changelog for yesod-cursor
 
-## Unreleased changes
+## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.8...main)
+
+- None
 
 ## [v2.0.0.8](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.7...v2.0.0.8)
 
