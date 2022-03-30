@@ -16,6 +16,7 @@ import Data.Foldable (traverse_)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Data.Scientific (Scientific)
+import Data.String (IsString(..))
 import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (getCurrentTime)
@@ -245,14 +246,17 @@ assertKeys expectedKeys = do
   body <- getBody
   body ^.. _Array . traverse . key "key" . _Number `shouldBe` expectedKeys
 
-getLink :: HasCallStack => Text -> YesodExample site Text
+getLink :: HasCallStack => String -> YesodExample site Text
 getLink rel =
-  fromMaybe (error $ "no " <> unpack rel <> " in JSON response") <$> mayLink rel
+  fromMaybe (error $ "no " <> rel <> " in JSON response") <$> mayLink rel
 
-mayLink :: Text -> YesodExample site (Maybe Text)
+mayLink :: String -> YesodExample site (Maybe Text)
 mayLink rel = do
   body <- getBody
-  pure $ body ^? key rel . _String
+
+  -- Using fromString so we can deal with aeson-2.0 without CPP. fromString will
+  -- give us a Text (aeson-1.x) or  a Key (aeson-2.0) as appropriate.
+  pure $ body ^? key (fromString rel) . _String
 
 getLinkViaHeader :: HasCallStack => Text -> YesodExample site Text
 getLinkViaHeader rel =
