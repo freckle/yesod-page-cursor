@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3bda58b69f6558a12242c7eb05e0c1e0d5040914fd9694c380a838bbdcfcdf11
+-- hash: 3ead78d90e67cc5daaf8a5561577ae79bbe1d8d65b4127fe9e6781d37aa17417
 
 name:           yesod-page-cursor
 version:        2.0.0.9
@@ -41,7 +41,7 @@ library
     , containers
     , http-link-header
     , network-uri
-    , text >=1.2.3.2
+    , text
     , unliftio
     , yesod-core
   default-language: Haskell2010
@@ -71,7 +71,7 @@ test-suite yesod-page-cursor-test
     , persistent-sqlite
     , persistent-template
     , scientific
-    , text >=1.2.3.2
+    , text
     , time
     , unliftio
     , unliftio-core

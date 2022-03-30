@@ -17,7 +17,7 @@ dependencies:
   - base >= 4.7 && < 5
   - bytestring
   - http-link-header
-  - text >= 1.2.3.2
+  - text
   - unliftio
   - yesod-core
 
