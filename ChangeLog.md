@@ -1,8 +1,13 @@
 # Changelog for yesod-cursor
 
-## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.9...main)
+## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.10...main)
 
 - None
+
+## [v2.0.0.10](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.9...v2.0.0.10)
+
+- Support aeson-2.0
+- Compile with more GHCs on CI
 
 ## [v2.0.0.9](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.8...v2.0.0.9)
 

@@ -1,13 +1,13 @@
-cabal-version: 1.12
+cabal-version: 1.18
 
 -- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3ead78d90e67cc5daaf8a5561577ae79bbe1d8d65b4127fe9e6781d37aa17417
+-- hash: 2cd62b9438a3235056abd60db7af49fe627cc0cca30907942466e72752ef3775
 
 name:           yesod-page-cursor
-version:        2.0.0.9
+version:        2.0.0.10
 description:    Cursor based pagination for Yesod
 homepage:       https://github.com/freckle/yesod-page-cursor#readme
 bug-reports:    https://github.com/freckle/yesod-page-cursor/issues
@@ -17,7 +17,7 @@ copyright:      2020 Renaissance Learning Inc
 license:        MIT
 license-file:   LICENSE
 build-type:     Simple
-extra-source-files:
+extra-doc-files:
     README.md
     ChangeLog.md
 
