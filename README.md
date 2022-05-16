@@ -7,10 +7,9 @@ Primer: [No Offset](https://use-the-index-luke.com/no-offset)
 ```hs
 getSomeR :: Handler Value
 getSomeR = do
-  let
-    parseParams =
-      (,) <$> Param.required "teacherId" <*> Param.optional "courseId"
-  page <- withPage 100 entityPage parseParams $ \Cursor {..} -> do
+  teacherId <- Param.required "teacherId"
+  mCourseId <- Param.optional "courseId"
+  page <- withPageAbsolute 100 entityKey $ \Cursor {..} -> do
     let (teacherId, mCourseId) = cursorParams
     fmap (sort cursorPosition) . runDB $ selectList
       (catMaybes
@@ -43,16 +42,9 @@ getSomeR = do
 like:
 
 ```hs
-createdAtPage = PageConfig
-  { makePosition = \x ->
-      (entityKey x, someAsssignmentCreatedAt $ entityVal x)
-  , baseDomain = Nothing
-  }
-
 getSortedSomeR :: Handler Value
 getSortedSomeR = do
-  let parseParams = pure ()
-  page <- withPage 100 createdAtPage parseParams $ \Cursor {..} -> do
+  page <- withPageAbsolute 100 $ \Cursor {..} -> do
     fmap (sort cursorPosition) . runDB $ selectList
       (whereClause cursorPosition)
       [ LimitTo $ fromMaybe 100 cursorLimit
@@ -91,9 +83,9 @@ retrieve the next page.
 ```sh
 $ curl 'some-rest.com/endpoint?limit=3'
 {
-  "first": : "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "first": : "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "previous": null,
-  "next": "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [...]
 }
 ```
@@ -103,9 +95,9 @@ The link can be used to retrieve the next page.
 ```sh
 $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "first": : "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
-  "previous": "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
-  "next": "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "first": : "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "previous": "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "next": "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "data": [...]
 }
 ```
@@ -115,8 +107,8 @@ If no pages remain then no link is returned
 ```sh
 $ curl 'some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ=='
 {
-  "first": : "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
-  "previous": "some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "first": : "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
+  "previous": "https://some-rest.com/endpoint?next=eyJsYXN0UG9zaXRpb24iOjMsInBhcmFtcyI6WzEsbnVsbF0sImxpbWl0IjozfQ==",
   "next": null,
   "data": [...]
 }
