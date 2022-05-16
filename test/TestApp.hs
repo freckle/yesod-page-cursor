@@ -41,9 +41,10 @@ import Database.Persist.TH
 import GHC.Generics (Generic)
 import Network.HTTP.Types.Status (status400)
 import Yesod
-  ( MonadHandler
+  ( Approot(..)
+  , MonadHandler
   , MonadUnliftIO
-  , Yesod
+  , Yesod(approot)
   , YesodPersist
   , YesodPersistBackend
   , lookupGetParam
@@ -71,10 +72,13 @@ data Simple = Simple
 
 mkYesod "Simple" [parseRoutes|
 /some-route SomeR GET
+/some-route-absolute SomeAbsoluteR GET
 /some-route-link SomeLinkR GET
+/some-route-link-absolute SomeLinkAbsoluteR GET
 |]
 
-instance Yesod Simple
+instance Yesod Simple where
+  approot = ApprootStatic "http://localhost:3000"
 
 runDB'
   :: (MonadUnliftIO m, MonadLogger m, MonadLoggerIO m)
@@ -98,8 +102,14 @@ requireParam name = maybe badRequest pure =<< optionalParam name
 getSomeR :: Handler Value
 getSomeR = makePaginationRoute withPage
 
+getSomeAbsoluteR :: Handler Value
+getSomeAbsoluteR = makePaginationRoute withPageAbsolute
+
 getSomeLinkR :: Handler Value
 getSomeLinkR = makePaginationRoute withPageLink
+
+getSomeLinkAbsoluteR :: Handler Value
+getSomeLinkAbsoluteR = makePaginationRoute withPageLinkAbsolute
 
 type Pagination m f a
   = Int
