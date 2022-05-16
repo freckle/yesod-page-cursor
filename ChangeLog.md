@@ -1,8 +1,10 @@
 # Changelog for yesod-cursor
 
-## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.10...main)
+## [Unreleased](https://github.com/freckle/yesod-page-cursor/compare/v2.0.1.0...main)
 
-- None
+## [v2.0.0.10](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.10...v2.0.1.0)
+
+- Add `withPage{,Link}Absolute` for generate absolute pagination links
 
 ## [v2.0.0.10](https://github.com/freckle/yesod-page-cursor/compare/v2.0.0.9...v2.0.0.10)
 
