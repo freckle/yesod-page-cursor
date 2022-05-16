@@ -9,7 +9,9 @@
 
 module Yesod.Page
   ( withPageLink
+  , withPageLinkAbsolute
   , withPage
+  , withPageAbsolute
   , Page(..)
   , Cursor(..)
   , Position(..)
@@ -31,6 +33,7 @@ import Yesod.Core
   ( HandlerSite
   , MonadHandler
   , RenderRoute
+  , Yesod
   , addHeader
   , invalidArgs
   , lookupGetParam
@@ -38,6 +41,9 @@ import Yesod.Core
 import Yesod.Page.RenderedRoute
 
 -- | @'withPage'@ and adding pagination data to a @Link@ response header
+--
+-- Links added by this function are relative. See 'withPageLinkAbsolute'.
+--
 withPageLink
   :: ( MonadHandler m
      , ToJSON position
@@ -70,6 +76,48 @@ withPageLink defaultLimit makePosition fetchItems = do
 
   pageData page <$ addHeader "Link" link
 
+-- | @'withPage'@ and adding pagination data to a @Link@ response header
+--
+-- If you've set an 'approot', links added by this function will be absolute
+-- using it. If not, this function will be equivalent to 'withPageLink'.
+--
+withPageLinkAbsolute
+  :: ( MonadHandler m
+     , ToJSON position
+     , FromJSON position
+     , Yesod (HandlerSite m)
+     , RenderRoute (HandlerSite m)
+     )
+  => Int
+  -- ^ Default limit if not specified in the @'Cursor'@
+  --
+  -- Must be a positive natural number.
+  --
+  -> (a -> position)
+  -- ^ How to get an item's position
+  --
+  -- For example, this would be @'entityKey'@ for paginated @'Entity'@ values.
+  --
+  -> (Cursor position -> m [a])
+  -- ^ How to fetch one page of data at the given @'Cursor'@
+  -> m [a]
+withPageLinkAbsolute defaultLimit makePosition fetchItems = do
+  page <- withPageAbsolute defaultLimit makePosition fetchItems
+
+  let
+    link = writeLinkHeader $ catMaybes
+      [ Just $ renderedRouteLink "first" $ pageFirst page
+      , renderedRouteLink "next" <$> pageNext page
+      , renderedRouteLink "previous" <$> pagePrevious page
+      , Just $ renderedRouteLink "last" $ pageLast page
+      ]
+
+  pageData page <$ addHeader "Link" link
+
+-- | Paginate data and construct a 'Page' object.
+--
+-- Links added by this function are relative. See 'withPageAbsolute'.
+--
 withPage
   :: ( MonadHandler m
      , ToJSON position
@@ -131,6 +179,73 @@ withPage defaultLimit makePosition fetchItems = do
     , pageLast = cursorRouteAtPosition cursor Last
     }
 
+-- | 'withPage', but using absolute links
+--
+-- If you've set an 'approot', links added by this function will be absolute
+-- using it. If not, this function will be equivalent to 'withPage'.
+--
+withPageAbsolute
+  :: ( MonadHandler m
+     , ToJSON position
+     , FromJSON position
+     , Yesod (HandlerSite m)
+     , RenderRoute (HandlerSite m)
+     )
+  => Int
+  -- ^ Default limit if not specified in the @'Cursor'@
+  --
+  -- Must be a positive natural number.
+  --
+  -> (a -> position)
+  -- ^ How to get an item's position
+  --
+  -- For example, this would be @'entityKey'@ for paginated @'Entity'@ values.
+  --
+  -> (Cursor position -> m [a])
+  -- ^ How to fetch one page of data at the given @'Cursor'@
+  -> m (Page a)
+withPageAbsolute defaultLimit makePosition fetchItems = do
+  cursor <- parseCursorParamsAbsolute defaultLimit
+
+  -- We have to fetch page-size+1 items to know if there is a next page or not
+  let (Limit realLimit) = cursorLimit cursor
+  items <- fetchItems cursor { cursorLimit = Limit $ realLimit + 1 }
+
+  let
+    page = case cursorPosition cursor of
+      First -> take realLimit items
+      Next{} -> take realLimit items
+      Previous{} -> takeEnd realLimit items
+      Last -> takeEnd realLimit items
+
+    hasExtraItem = length items > realLimit
+
+    hasNextLink = case cursorPosition cursor of
+      First -> hasExtraItem
+      Next{} -> hasExtraItem
+      Previous{} -> True
+      Last -> False
+
+    hasPreviousLink = case cursorPosition cursor of
+      First -> False
+      Next{} -> True
+      Previous{} -> hasExtraItem
+      Last -> hasExtraItem
+
+  pure Page
+    { pageData = page
+    , pageFirst = cursorRouteAtPosition cursor First
+    , pageNext = do
+      guard hasNextLink
+      item <- lastMay page
+      pure $ cursorRouteAtPosition cursor $ Next $ makePosition item
+    , pagePrevious = do
+      guard hasPreviousLink
+      item <- headMay page
+      pure $ cursorRouteAtPosition cursor $ Previous $ makePosition item
+    , pageLast = cursorRouteAtPosition cursor Last
+    }
+
 data Page a = Page
   { pageData :: [a]
   , pageFirst :: RenderedRoute
@@ -138,7 +253,7 @@ data Page a = Page
   , pagePrevious :: Maybe RenderedRoute
   , pageLast :: RenderedRoute
   }
-  deriving (Functor)
+  deriving Functor
 
 instance ToJSON a => ToJSON (Page a) where
   toJSON p = object
@@ -228,6 +343,29 @@ parseCursorParams defaultLimit = do
     =<< lookupGetParam "limit"
 
   renderedRoute <- getRenderedRoute
+  pure $ Cursor renderedRoute position limit
+
+parseCursorParamsAbsolute
+  :: ( MonadHandler m
+     , FromJSON position
+     , Yesod (HandlerSite m)
+     , RenderRoute (HandlerSite m)
+     )
+  => Int
+  -> m (Cursor position)
+parseCursorParamsAbsolute defaultLimit = do
+  mePosition <- fmap eitherDecodeText <$> lookupGetParam "position"
+  position <- case mePosition of
+    Nothing -> pure First
+    Just (Left err) -> invalidArgs [pack err]
+    Just (Right p) -> pure p
+
+  limit <-
+    either (invalidArgs . pure . pack) pure
+    . maybe (validateLimit defaultLimit) readLimit
+    =<< lookupGetParam "limit"
+
+  renderedRoute <- getRenderedRouteAbsolute
   pure $ Cursor renderedRoute position limit
 
 eitherDecodeText :: FromJSON a => Text -> Either String a

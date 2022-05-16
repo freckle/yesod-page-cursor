@@ -18,6 +18,7 @@ import Data.Maybe (fromMaybe)
 import Data.Scientific (Scientific)
 import Data.String (IsString(..))
 import Data.Text (Text, pack, unpack)
+import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (getCurrentTime)
 import Database.Persist (Filter, deleteWhere, insert)
@@ -27,7 +28,7 @@ import Network.HTTP.Link.Compat
 import Network.HTTP.Types.Header (HeaderName)
 import Network.Wai.Test (simpleBody, simpleHeaders)
 import Test.Hspec (Spec, SpecWith, beforeAll, before_, describe, hspec, it)
-import Test.Hspec.Expectations.Lifted (shouldBe, shouldReturn)
+import Test.Hspec.Expectations.Lifted (shouldBe, shouldReturn, shouldSatisfy)
 import TestApp
 import Yesod.Core (RedirectUrl, Yesod)
 import Yesod.Test
@@ -180,6 +181,14 @@ spec = withApp $ do
       get =<< getLink "previous"
       assertDataKeys [1, 2]
 
+    it "supports absolute URLS" $ do
+      runDB $ insertAssignments 6
+
+      getPaginated SomeAbsoluteR [("teacherId", "1"), ("limit", "2")]
+
+      url <- getLink "next"
+      url `shouldSatisfy` ("http://localhost:3000/" `T.isPrefixOf`)
+
     it "can traverse via Link" $ do
       runDB $ insertAssignments 6
 
@@ -198,6 +207,14 @@ spec = withApp $ do
       assertKeys [3, 4]
       get =<< getLinkViaHeader "previous"
       assertKeys [1, 2]
+
+    it "supports absolute URLS via Link" $ do
+      runDB $ insertAssignments 6
+
+      getPaginated SomeLinkAbsoluteR [("teacherId", "1"), ("limit", "2")]
+
+      url <- getLinkViaHeader "next"
+      url `shouldSatisfy` ("http://localhost:3000/" `T.isPrefixOf`)
 
 withApp :: SpecWith (TestApp Simple) -> Spec
 withApp = beforeAll (testApp Simple id <$ setupDB) . before_ wipeDB
