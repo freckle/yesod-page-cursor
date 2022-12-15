@@ -1,5 +1,10 @@
 # yesod-page-cursor
 
+[![Hackage](https://img.shields.io/hackage/v/yesod-page-cursor.svg?style=flat)](https://hackage.haskell.org/package/yesod-page-cursor)
+[![Stackage Nightly](http://stackage.org/package/yesod-page-cursor/badge/nightly)](http://stackage.org/nightly/package/yesod-page-cursor)
+[![Stackage LTS](http://stackage.org/package/yesod-page-cursor/badge/lts)](http://stackage.org/lts/package/yesod-page-cursor)
+[![CI](https://github.com/freckle/yesod-page-cursor/actions/workflows/ci.yml/badge.svg)](https://github.com/freckle/yesod-page-cursor/actions/workflows/ci.yml)
+
 Cursor based pagination for `yesod` using index friendly keyset cursors.
 
 Primer: [No Offset](https://use-the-index-luke.com/no-offset)
