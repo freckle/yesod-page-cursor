@@ -1,10 +1,10 @@
 cabal-version: 1.18
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: eaa0914a128480205b3dcbf33c57849e98bff2740215ebd5a67b9e883eec7c38
+-- hash: 6608f0ca0e51715ac4253bb49b9151f2915edd08af9c246724386a5e3a00a071
 
 name:           yesod-page-cursor
 version:        2.0.1.0
@@ -44,6 +44,26 @@ library
     , text
     , unliftio
     , yesod-core
+  default-language: Haskell2010
+
+test-suite readme
+  type: exitcode-stdio-1.0
+  main-is: README.lhs
+  other-modules:
+      Paths_yesod_page_cursor
+  ghc-options: -pgmL markdown-unlit
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , http-link-header
+    , markdown-unlit
+    , persistent
+    , text
+    , time
+    , unliftio
+    , yesod-core
+    , yesod-page-cursor
   default-language: Haskell2010
 
 test-suite yesod-page-cursor-test
