@@ -28,6 +28,16 @@ library:
     - network-uri
 
 tests:
+  readme:
+    main: README.lhs
+    ghc-options: -pgmL markdown-unlit
+    dependencies:
+      - markdown-unlit
+      - persistent
+      - time
+      - yesod-core
+      - yesod-page-cursor
+
   yesod-page-cursor-test:
     main: Spec.hs
     source-dirs: test
