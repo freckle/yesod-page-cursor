@@ -4,7 +4,7 @@ cabal-version: 1.18
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6608f0ca0e51715ac4253bb49b9151f2915edd08af9c246724386a5e3a00a071
+-- hash: 6709241735281230fd6fe006f87a7570075d451613beacb2e770f3b08c3fd402
 
 name:           yesod-page-cursor
 version:        2.0.1.0
@@ -59,6 +59,7 @@ test-suite readme
     , http-link-header
     , markdown-unlit
     , persistent
+    , persistent-template
     , text
     , time
     , unliftio
