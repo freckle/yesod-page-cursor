@@ -4,7 +4,7 @@ cabal-version: 1.18
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6608f0ca0e51715ac4253bb49b9151f2915edd08af9c246724386a5e3a00a071
+-- hash: 05098ed4bd1c97b9f23eb5318796dd0995eaefbfe7f1b1659295c6ae6bca493d
 
 name:           yesod-page-cursor
 version:        2.0.1.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Network.HTTP.Link.Compat
       Yesod.Page
+      Yesod.Page.Persist
       Yesod.Page.RenderedRoute
   other-modules:
       Paths_yesod_page_cursor
@@ -40,7 +41,10 @@ library
     , bytestring
     , containers
     , http-link-header
+    , lens
+    , mtl
     , network-uri
+    , persistent
     , text
     , unliftio
     , yesod-core

@@ -27,6 +27,11 @@ library:
     - containers
     - network-uri
 
+    # for yesod-page-persistent
+    - lens
+    - mtl
+    - persistent
+
 tests:
   readme:
     main: README.lhs
