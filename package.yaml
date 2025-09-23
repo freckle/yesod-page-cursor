@@ -32,13 +32,14 @@ tests:
     main: README.lhs
     ghc-options: -pgmL markdown-unlit
     dependencies:
-      - markdown-unlit
       - persistent
       - persistent-template
       - time
       - yesod-core
       - yesod-page-cursor
 
+    build-tools:
+      - markdown-unlit
   yesod-page-cursor-test:
     main: Spec.hs
     source-dirs: test

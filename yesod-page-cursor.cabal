@@ -1,10 +1,10 @@
 cabal-version: 1.18
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6709241735281230fd6fe006f87a7570075d451613beacb2e770f3b08c3fd402
+-- hash: c74ed7c6f1257fe7c465b04c1a3f366c8a1d723d91ef5a215319212ebb6c9d4a
 
 name:           yesod-page-cursor
 version:        2.0.1.0
@@ -52,12 +52,13 @@ test-suite readme
   other-modules:
       Paths_yesod_page_cursor
   ghc-options: -pgmL markdown-unlit
+  build-tool-depends:
+      markdown-unlit:markdown-unlit
   build-depends:
       aeson
     , base >=4.7 && <5
     , bytestring
     , http-link-header
-    , markdown-unlit
     , persistent
     , persistent-template
     , text
