@@ -35,7 +35,6 @@ import Data.Time (UTCTime)
 import Database.Persist
 import Database.Persist.Sql
 import Database.Persist.TH
-import Text.Markdown.Unlit ()
 import Yesod.Core
 import Yesod.Page
 
